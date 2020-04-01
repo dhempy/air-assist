@@ -2,7 +2,7 @@
 //
 // This program controls the Air Assist Ventilator.
 // It activates solenoid valves to assist a patient inhaling and exhaling.
-// It allows practitioner to control the rate of respiration.
+// It allows the practitioner to control the rate of respiration.
 //
 // Copyright (C) 2020 David Hempy - See LICENSE file
 //
@@ -17,30 +17,31 @@ long EXHALE_HOLD_TIME  = 500;
 
 enum state_enum {INHALE, INHALE_HOLD, EXHALE, EXHALE_HOLD};
 
+long now = millis();
 long next_appt = 0;
 int current_state = INHALE_HOLD; // precedes EXHALE
 
 void setup() {
+  Serial.begin(9600);
+  Serial.println("Air Assist Activated");
   pinMode(INHALE_PIN, OUTPUT);
   pinMode(EXHALE_PIN, OUTPUT);
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW);
-
-
-  Serial.begin(9600);
-  Serial.println("Air Assist Activated");
 }
 
-// the loop function runs over and over again forever
 void loop() {
-  long now;
-
   now = millis();
-  status_blink();
+
+  status_blink(); // Visual confirmation that program is running.
 
   if (next_appt > now) {
+    // TODO: This will fail when long int rolls over...about 20 days.
+    //       Convert to a subtraction comparison to avoid that problem.
     return;
   }
+
+  status_dump("PRE ");
 
   switch (current_state) {
     case INHALE:
@@ -72,6 +73,8 @@ void loop() {
       current_state = INHALE_HOLD;
       next_appt = now - 1;
   }
+
+  status_dump("POST");
 }
 
 void valve_inhale() {
@@ -94,4 +97,10 @@ void status_blink() {
   delay(25);
   digitalWrite(13, LOW);
   delay(25);
+}
+
+void status_dump(char *comment) {
+  char msg[80];
+  sprintf(msg, "%ld (%ld) %s %d ", now, next_appt, comment, current_state);
+  Serial.println(msg);
 }
