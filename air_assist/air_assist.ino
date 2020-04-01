@@ -36,7 +36,7 @@ void loop() {
   status_blink(); // Visual confirmation that program is running.
 
   if (next_appt > now) {
-    // TODO: This will fail when long int rolls over...about 20 days.
+    // TODO: This will fail when long int rolls over...about 50 days.
     //       Convert to a subtraction comparison to avoid that problem.
     return;
   }
