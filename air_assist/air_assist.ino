@@ -13,11 +13,11 @@ const byte RX_PIN                = 0;
 const byte TX_PIN                = 1;
 const byte BUTTON_UP_PIN         = 2;
 const byte BUTTON_DOWN_PIN       = 3;
-const byte BUTTON_RATIO_PIN      = 4;
-const byte RELAY_4_PIN           = 5;
-const byte RELAY_ALARM_PIN       = 6;
-const byte RELAY_EXHALE_PIN      = 7;
-const byte RELAY_INHALE_PIN      = 8;
+const byte RELAY_4_PIN           = 4;
+const byte RELAY_ALARM_PIN       = 5;
+const byte RELAY_EXHALE_PIN      = 6;
+const byte RELAY_INHALE_PIN      = 7;
+const byte BUTTON_RATIO_PIN      = 8;
 const byte BUTTON_RATE_PIN       = 9;
 const byte LCD_D4_PIN            = 10;
 const byte LCD_D5_PIN            = 11;
@@ -31,12 +31,12 @@ const byte LCD_RS_PIN            = A4;
 const byte LCD_ENABLE_PIN        = A5;
 
 int cycle_time  = 3000;
-int ie_ratio    = 2.0;
+float ie_ratio    = 2.0;
 
-long inhale_time       = 1000;
-long inhale_hold_time  = 250;
-long exhale_time       = 3000;
-long exhale_hold_time  = 250;
+// long inhale_time       = 1000;
+long inhale_hold_time  = 1000;
+// long exhale_time       = 3000;
+long exhale_hold_time  = 2000;
 
 enum state_enum {START, INHALE, EXHALE};
 
@@ -57,7 +57,7 @@ void setup() {
   lcd.print("Air Assist");
 
   Serial.begin(9600);
-  Serial.println("Air Assist Activating");
+  Serial.println("\n----------------- Air Assist Activating -----------------\n");
 
   // pinMode(RX_PIN,         QQQ);
   // pinMode(TX_PIN,         QQQ);
@@ -73,6 +73,8 @@ void setup() {
   // pinMode(LCD_D5_PIN,     QQQ);
   // pinMode(LCD_D6_PIN,     QQQ);
   // pinMode(LCD_D7_PIN,     QQQ);
+
+  compute_delays();
 }
 
 void loop() {
@@ -84,7 +86,7 @@ void loop() {
 }
 
 void advance_state() {
-  state_dump("PRE ");
+  state_dump("advance_state: PRE ");
 
   switch (current_state) {
     case INHALE:
@@ -104,7 +106,7 @@ void advance_state() {
       wait_for = 500;
   }
 
-  state_dump("POST");
+  state_dump("advance_state: POST");
 }
 
 void inhale() {
@@ -123,35 +125,49 @@ void hold() {
 }
 
 
-char last_up_state = 99;
-char last_down_state = 99;
-char last_ratio_state = 99;
-char last_rate_state = 99;
+char last_up_state = 1;
+char last_down_state = 1;
+char last_ratio_state = 1;
+char last_rate_state = 1;
+
+char button_stats[128];
+
 
 void check_buttons() {
-  char up_state    = digitalRead(BUTTON_UP_PIN);
-  char down_state  = digitalRead(BUTTON_DOWN_PIN);
-  char ratio_state = digitalRead(BUTTON_RATIO_PIN);
-  char rate_state  = digitalRead(BUTTON_RATE_PIN);
+  // Serial.println("check_buttons");
 
-  char up_pressed;
-  char down_pressed;
+  char up_state    = !digitalRead(BUTTON_UP_PIN);
+  char down_state  = !digitalRead(BUTTON_DOWN_PIN);
+  char ratio_state = !digitalRead(BUTTON_RATIO_PIN);
+  char rate_state  = !digitalRead(BUTTON_RATE_PIN);
+  char up_pressed   = 0;
+  char down_pressed = 0;
 
-  bool activity = 0;
+  // bool activity = 0;
 
-  if (up_state == last_up_state) {
-    up_pressed = 0;
-  } else {
+  // sprintf(msg, "%ld up_state:%d last_up_state:%d up_pressed:%d (PRE)",
+  //              millis(), up_state, last_up_state, up_pressed);
+  // Serial.println(msg);
+
+
+  if (up_state != last_up_state) {
     up_pressed = up_state;
     last_up_state = up_state;
   }
 
-  if (down_state == last_down_state) {
-    down_pressed = 0;
-  } else {
+  // sprintf(msg, "%ld up_state:%d last_up_state:%d up_pressed:%d (POST)",
+  //              millis(), up_state, last_up_state, up_pressed);
+  // Serial.println(msg);
+
+  if (down_state != last_down_state) {
     down_pressed = down_state;
     last_down_state = down_state;
   }
+
+  // if (!(up_pressed ||down_pressed ||rate_state ||ratio_state)) {
+  //   return;
+  // }
+
 
   if (
       (rate_state && ratio_state) ||
@@ -162,50 +178,50 @@ void check_buttons() {
     return;
   }
 
-  if (rate_state && up_pressed) { rate_increase; }
-  if (rate_state && down_pressed) { rate_decrease; }
-  if (ratio_state && up_pressed) { ratio_increase; }
-  if (ratio_state && down_pressed) { ratio_decrease; }
+  // sprintf(msg, "UP:%d DN:%d RATE:%d RATIO:%d  <---- ADJUSTING...",
+  //              up_pressed, down_pressed, rate_state, ratio_state);
+  // Serial.println(msg);
+
+  if (rate_state && up_pressed) { rate_increase(); }
+  if (rate_state && down_pressed) { rate_decrease(); }
+  if (ratio_state && up_pressed) { ratio_increase(); }
+  if (ratio_state && down_pressed) { ratio_decrease(); }
 
   compute_delays();
-    // if (up_state == 0) {
-    //   activity = 1;
-    // }
-
-    // if (down_state == 0) {
-    //   inhale_time = max(100, inhale_time - 100);
-    //   activity = 1;
-    // }
-
-  settings_dump();
 }
 
 void rate_increase() {
-  if (cycle_time >= 6000) { return; }
-  cycle_time += 100;
+  // Serial.println("rate_increase");
+  cycle_time = min(6000, cycle_time + 100);
 }
 
 void rate_decrease() {
-  if (cycle_time <= 2000) { return; }
-  cycle_time -= 100;
+  // Serial.println("rate_decrease");
+  cycle_time = max(2000, cycle_time - 100);
 }
 
 void ratio_increase() {
-  if (ie_ratio >= 3.0) { return; }
-  ie_ratio += 0.1;
+  // Serial.println("ratio_increase");
+  ie_ratio = min(3.0, ie_ratio + 0.1);
 }
 
 void ratio_decrease() {
-  if (ie_ratio <= 1.5) { return; }
-  ie_ratio -= 0.1;
+  // Serial.println("ratio_decrease");
+  ie_ratio = max(1.5, ie_ratio - 0.1);
+
 }
 
 void compute_delays() {
+  // Serial.println("compute_delays");
+
   // TODO: write tests.
   float one_cycle = 1.0 + ie_ratio;
   inhale_hold_time = int((float)cycle_time / one_cycle);
   exhale_hold_time = int(ie_ratio * inhale_hold_time);
+
+  settings_dump();
 }
+
 
 
 void state_dump(char *comment) {
@@ -214,6 +230,20 @@ void state_dump(char *comment) {
 }
 
 void settings_dump() {
-  sprintf(msg, "cycle=%d I:E=%ld inhale=%ld exhale=%ld ", ie_ratio, inhale_time, exhale_time);
+  char c[16];
+  char ie[16];
+  char i[16];
+  char e[16];
+
+  dtostrf((float)cycle_time/1000.0, 3, 1, c);
+  dtostrf(ie_ratio,                 3, 1, ie);
+  dtostrf(inhale_hold_time/1000.0,  3, 1, i);
+  dtostrf(exhale_hold_time/1000.0,  3, 1, e);
+
+  sprintf(msg, "C=%s I:E=%s i=%s e=%s", c, ie, i, e);
   Serial.println(msg);
+
+  lcd.setCursor(0, 1);
+  lcd.print(msg);
 }
+
