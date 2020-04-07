@@ -4,182 +4,223 @@
 // It activates solenoid valves to assist a patient inhaling and exhaling.
 // It allows the practitioner to control the rate of respiration.
 //
-// Copyright (C) 2020 David Hempy - See LICENSE file
+// Copyright (C) 2020 David Hempy
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
-const byte INHALE_PIN      = 7;
-const byte EXHALE_PIN      = 6;
-const byte INHALE_MORE_PIN = 5;
-const byte INHALE_LESS_PIN = 4;
-const byte EXHALE_MORE_PIN = 3;
-const byte EXHALE_LESS_PIN = 2;
+#include <LiquidCrystal.h>
 
+const byte RX_PIN                = 0;
+const byte TX_PIN                = 1;
+const byte BUTTON_UP_PIN         = 2;
+const byte BUTTON_DOWN_PIN       = 3;
+const byte RELAY_4_PIN           = 4;
+const byte RELAY_ALARM_PIN       = 5;
+const byte RELAY_EXHALE_PIN      = 6;
+const byte RELAY_INHALE_PIN      = 7;
+const byte BUTTON_RATIO_PIN      = 8;
+const byte BUTTON_RATE_PIN       = 9;
+const byte LCD_D4_PIN            = 10;
+const byte LCD_D5_PIN            = 11;
+const byte LCD_D6_PIN            = 12;
+const byte LCD_D7_PIN            = 13;
+const byte EXH_PRESSURE_PIN      = A0;
+const byte INH_PRESSURE_PIN      = A1;
+const byte OXY_SENSOR_PIN        = A2;
+const byte ZZZ_PIN               = A3;
+const byte LCD_RS_PIN            = A4;
+const byte LCD_ENABLE_PIN        = A5;
 
-long inhale_time       = 1000;
-long inhale_hold_time  = 250;
-long exhale_time       = 3000;
-long exhale_hold_time  = 250;
+long cycle_time  = 3000;
+float ie_ratio    = 2.0;
+long inhale_hold_time  = 1000;
+long exhale_hold_time  = 2000;
 
-enum state_enum {INHALE, INHALE_HOLD, EXHALE, EXHALE_HOLD};
+enum state_enum {START, INHALE, EXHALE};
 
-long now = millis();
-long next_appt = 0;
-int current_state = INHALE_HOLD; // precedes EXHALE
+unsigned long now = millis();
+unsigned long last_event = 0;
+unsigned long wait_for = 0;
+char current_state = START;
 
 char msg[255];
 
+LiquidCrystal lcd(LCD_ENABLE_PIN, LCD_RS_PIN,
+  LCD_D4_PIN, LCD_D5_PIN, LCD_D6_PIN, LCD_D7_PIN);
+
 void setup() {
+  lcd.begin(16, 2);
+  lcd.print("Air Assist");
+
   Serial.begin(9600);
-  Serial.println("Air Assist Activated");
+  Serial.println("\n----------------- Air Assist Activating -----------------\n");
 
-  pinMode(INHALE_PIN, OUTPUT);
-  pinMode(EXHALE_PIN, OUTPUT);
+  pinMode(BUTTON_UP_PIN,     INPUT_PULLUP);
+  pinMode(BUTTON_DOWN_PIN,   INPUT_PULLUP);
+  pinMode(BUTTON_RATIO_PIN,  INPUT_PULLUP);
+  pinMode(BUTTON_RATE_PIN,   INPUT_PULLUP);
 
-  pinMode(INHALE_MORE_PIN, INPUT_PULLUP);
-  pinMode(INHALE_LESS_PIN, INPUT_PULLUP);
-  pinMode(EXHALE_MORE_PIN, INPUT_PULLUP);
-  pinMode(EXHALE_LESS_PIN, INPUT_PULLUP);
+  pinMode(RELAY_4_PIN,       OUTPUT);
+  pinMode(RELAY_ALARM_PIN,   OUTPUT);
+  pinMode(RELAY_EXHALE_PIN,  OUTPUT);
+  pinMode(RELAY_INHALE_PIN,  OUTPUT);
 
-  pinMode(13, OUTPUT);
-  digitalWrite(13, LOW);
+  compute_delays();
 }
 
 void loop() {
-  now = millis();
-
-  status_blink(); // Visual confirmation that program is running.
-
   check_buttons();
+  now = millis();
+  if (now - last_event < wait_for) { return; }
 
-  if (next_appt > now) {
-    // TODO: This will fail when long int rolls over...about 50 days.
-    //       Convert to a subtraction comparison to avoid that problem.
-    return;
-  }
+  advance_state();
+}
 
-  state_dump("PRE ");
+void advance_state() {
+  state_dump("advance_state: PRE ");
 
   switch (current_state) {
     case INHALE:
-      valve_hold();
-      current_state = INHALE_HOLD;
-      next_appt = now + inhale_hold_time;
-      break;
-
-    case INHALE_HOLD:
-      valve_exhale();
+      exhale();
       current_state = EXHALE;
-      next_appt = now + exhale_time;
+      wait_for = exhale_hold_time;
       break;
 
     case EXHALE:
-      valve_hold();
-      current_state = EXHALE_HOLD;
-      next_appt = now + exhale_hold_time;
-      break;
-
-    case EXHALE_HOLD:
-      valve_inhale();
+      inhale;
       current_state = INHALE;
-      next_appt = now + inhale_time;
+      wait_for = inhale_hold_time;
       break;
 
     default:
-      // Go immediately to EXHALE next loop.
-      current_state = INHALE_HOLD;
-      next_appt = now - 1;
+      current_state = EXHALE;
+      wait_for = 500;
   }
 
-  state_dump("POST");
+  state_dump("advance_state: POST");
 }
 
-void valve_inhale() {
-  digitalWrite(EXHALE_PIN, LOW);
-  digitalWrite(INHALE_PIN, HIGH);
+void inhale() {
+  digitalWrite(RELAY_INHALE_PIN, HIGH);
+  digitalWrite(RELAY_EXHALE_PIN, LOW);
 }
 
-void valve_exhale() {
-  digitalWrite(INHALE_PIN, LOW);
-  digitalWrite(EXHALE_PIN, HIGH);
+void exhale() {
+  digitalWrite(RELAY_INHALE_PIN, LOW);
+  digitalWrite(RELAY_EXHALE_PIN, LOW);
 }
 
-void valve_hold() {
-  digitalWrite(INHALE_PIN, LOW);
-  digitalWrite(EXHALE_PIN, LOW);
+void hold() {
+  digitalWrite(RELAY_INHALE_PIN, LOW);
+  digitalWrite(RELAY_EXHALE_PIN, LOW);
 }
 
-void status_blink() {
-  digitalWrite(13, HIGH);
-  delay(25);
-  digitalWrite(13, LOW);
-  delay(25);
-}
 
-char last_inhale_more_press = 99;
-char last_inhale_less_press = 99;
-char last_exhale_more_press = 99;
-char last_exhale_less_press = 99;
+char last_up_state = 1;
+char last_down_state = 1;
+char last_ratio_state = 1;
+char last_rate_state = 1;
+
+char button_stats[128];
+
 
 void check_buttons() {
-  char inhale_more_press = digitalRead(INHALE_MORE_PIN);
-  char inhale_less_press = digitalRead(INHALE_LESS_PIN);
-  char exhale_more_press = digitalRead(EXHALE_MORE_PIN);
-  char exhale_less_press = digitalRead(EXHALE_LESS_PIN);
+  char up_state    = !digitalRead(BUTTON_UP_PIN);
+  char down_state  = !digitalRead(BUTTON_DOWN_PIN);
+  char ratio_state = !digitalRead(BUTTON_RATIO_PIN);
+  char rate_state  = !digitalRead(BUTTON_RATE_PIN);
+  char up_pressed   = 0;
+  char down_pressed = 0;
 
-  bool activity = 0;
-
-  if (inhale_more_press != last_inhale_more_press) {
-    if (inhale_more_press == 0) {
-      inhale_time = min(10000, inhale_time + 100);
-      activity = 1;
-    }
-    last_inhale_more_press = inhale_more_press;
+  if (up_state != last_up_state) {
+    up_pressed = up_state;
+    last_up_state = up_state;
   }
 
-  if (inhale_less_press != last_inhale_less_press) {
-    if (inhale_less_press == 0) {
-      inhale_time = max(100, inhale_time - 100);
-      activity = 1;
-    }
-    last_inhale_less_press = inhale_less_press;
+  if (down_state != last_down_state) {
+    down_pressed = down_state;
+    last_down_state = down_state;
   }
 
-  if (exhale_more_press != last_exhale_more_press) {
-    if (exhale_more_press == 0) {
-      exhale_time = min(10000, exhale_time + 100);
-      activity = 1;
-    }
-    last_exhale_more_press = exhale_more_press;
+  if (
+      (rate_state && ratio_state) ||
+      (!rate_state && !ratio_state) ||
+      (up_pressed && down_pressed) ||
+      (!up_pressed && !down_pressed)
+     ) {
+    return;
   }
 
-  if (exhale_less_press != last_exhale_less_press) {
-    if (exhale_less_press == 0) {
-      exhale_time = max(100, exhale_time - 100);
-      activity = 1;
-    }
-    last_exhale_less_press = exhale_less_press;
-  }
+  // sprintf(msg, "UP:%d DN:%d RATE:%d RATIO:%d  <---- ADJUSTING...",
+  //              up_pressed, down_pressed, rate_state, ratio_state);
+  // Serial.println(msg);
 
-  if (activity) {
-    // sprintf(msg, "INHALE_MORE: %d; INHALE_LESS: %d; EXHALE_MORE: %d; EXHALE_LESS: %d",
-    //   inhale_more_press,
-    //   inhale_less_press,
-    //   exhale_more_press,
-    //   exhale_less_press
-    // );
-    // Serial.println(msg);
+  if (rate_state && up_pressed) { rate_increase(); }
+  if (rate_state && down_pressed) { rate_decrease(); }
+  if (ratio_state && up_pressed) { ratio_increase(); }
+  if (ratio_state && down_pressed) { ratio_decrease(); }
 
-    time_dump();
-  }
+  compute_delays();
 }
 
+void rate_increase() {
+  cycle_time = min(6000, cycle_time + 100);
+}
+
+void rate_decrease() {
+  cycle_time = max(2000, cycle_time - 100);
+}
+
+void ratio_increase() {
+  ie_ratio = min(3.0, ie_ratio + 0.1);
+}
+
+void ratio_decrease() {
+  ie_ratio = max(1.5, ie_ratio - 0.1);
+
+}
+
+void compute_delays() {
+  // TODO: write tests.
+  float one_cycle = 1.0 + ie_ratio;
+  inhale_hold_time = int((float)cycle_time / one_cycle);
+  exhale_hold_time = int(ie_ratio * inhale_hold_time);
+
+  settings_dump();
+}
 
 void state_dump(char *comment) {
   // sprintf(msg, "%ld (%ld) %.10s %d ", now, next_appt, comment, current_state);
   // Serial.println(msg);
 }
 
-void time_dump() {
-  sprintf(msg, "inhale time: %ld; exhale time: %ld", inhale_time, exhale_time);
+void settings_dump() {
+  char c[16];
+  char ie[16];
+  char i[16];
+  char e[16];
+
+  dtostrf((float)cycle_time/1000.0, 3, 1, c);
+  dtostrf(ie_ratio,                 3, 1, ie);
+  dtostrf(inhale_hold_time/1000.0,  3, 1, i);
+  dtostrf(exhale_hold_time/1000.0,  3, 1, e);
+
+  sprintf(msg, "C=%s I:E=%s i=%s e=%s", c, ie, i, e);
   Serial.println(msg);
+
+  lcd.setCursor(0, 1);
+  lcd.print(msg);
 }
+
