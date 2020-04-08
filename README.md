@@ -1,5 +1,8 @@
 # air-assist
-Arduino code to run the Air Assist open-source ventilator
+Arduino code to run the Air Assist open-source ventilator.
+
+More info: https://www.vent.guide/
+Code repo: https://github.com/dhempy/air-assist
 
 ## User Inputs:
 

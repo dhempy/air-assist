@@ -262,8 +262,8 @@ void heartbeat(char *comment) {
                 last_event, now);
   // suppressed: Serial.println(msg);
 
-  lcd.setCursor(0, 0);
-  lcd.print("                ");
+  // lcd.setCursor(0, 0);
+  // lcd.print("                ");
   lcd.setCursor(0, 0);
   lcd.print(msg);
 }
@@ -282,7 +282,8 @@ void settings_dump() {
   // sprintf(msg, "C=%s I:E=%s i=%s e=%s", c, ie, i, e);
   // Serial.println(msg);
 
-  sprintf(msg, "%s 1:%s ", c, ie);
+  sprintf(msg, "%s 1:%s", c, ie);
+  lcd.clear();
   lcd.setCursor(0, 1);
   lcd.print(msg);
 }
