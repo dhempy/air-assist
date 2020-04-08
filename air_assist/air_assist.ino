@@ -20,33 +20,46 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
+#define VERSION "0.0.3"
+
 #include <LiquidCrystal.h>
 
-const byte RX_PIN                = 0;
-const byte TX_PIN                = 1;
-const byte BUTTON_UP_PIN         = 2;
-const byte BUTTON_DOWN_PIN       = 3;
-const byte RELAY_4_PIN           = 4;
-const byte RELAY_ALARM_PIN       = 5;
-const byte RELAY_EXHALE_PIN      = 6;
-const byte RELAY_INHALE_PIN      = 7;
+const byte RX_PIN                = 0; // avoid
+const byte TX_PIN                = 1; // avoid
+const byte LCD_D4_PIN            = 2; // LCD pin 11
+const byte LCD_D5_PIN            = 3; // LCD pin 12
+const byte LCD_D6_PIN            = 4; // LCD pin 13
+const byte LCD_D7_PIN            = 5; // LCD pin 14
+const byte BUTTON_UP_PIN         = 6;
+const byte BUTTON_DOWN_PIN       = 7;
 const byte BUTTON_RATIO_PIN      = 8;
 const byte BUTTON_RATE_PIN       = 9;
-const byte LCD_D4_PIN            = 10;
-const byte LCD_D5_PIN            = 11;
-const byte LCD_D6_PIN            = 12;
-const byte LCD_D7_PIN            = 13;
+
+const byte RELAY_INHALE_PIN      = 10;
+const byte RELAY_EXHALE_PIN      = 11;
+const byte RELAY_ALARM_PIN       = 12;
+const byte RELAY_4_PIN           = 13; // avoid
+
 const byte EXH_PRESSURE_PIN      = A0;
 const byte INH_PRESSURE_PIN      = A1;
 const byte OXY_SENSOR_PIN        = A2;
 const byte ZZZ_PIN               = A3;
-const byte LCD_RS_PIN            = A4;
-const byte LCD_ENABLE_PIN        = A5;
+const byte LCD_RS_PIN            = A4;  // LCD pin 6 (or is it 4?)
+const byte LCD_ENABLE_PIN        = A5;  // LCD pin 4 (or is it 6?)
 
-long cycle_time  = 3000;
-float ie_ratio    = 2.0;
+// Default values, will be adjusted by settings.
+long cycle_time  = 4000;
+float ie_ratio    = 2.5;
 long inhale_hold_time  = 1000;
 long exhale_hold_time  = 2000;
+
+const long MIN_RATE = 2000;
+const long MAX_RATE = 6000;
+const float MIN_RATIO = 1.5;
+const float MAX_RATIO = 3.0;
+
+const long RATE_INCREMENT  = 100;
+const float RATIO_INCREMENT = 0.1;
 
 enum state_enum {START, INHALE, EXHALE};
 
@@ -55,6 +68,9 @@ unsigned long last_event = 0;
 unsigned long wait_for = 0;
 char current_state = START;
 
+unsigned long last_heartbeat = 1000;
+unsigned long heartbeat_freq = 2000;  // in ms
+
 char msg[255];
 
 LiquidCrystal lcd(LCD_ENABLE_PIN, LCD_RS_PIN,
@@ -62,10 +78,11 @@ LiquidCrystal lcd(LCD_ENABLE_PIN, LCD_RS_PIN,
 
 void setup() {
   lcd.begin(16, 2);
-  lcd.print("Air Assist");
+  sprintf(msg, "AirAssist %s", VERSION);
+  lcd.print(msg);
 
-  Serial.begin(9600);
-  Serial.println("\n----------------- Air Assist Activating -----------------\n");
+  // Serial.begin(9600);
+  // suppressed: Serial.println("\n----------------- Air Assist Activating -----------------\n");
 
   pinMode(BUTTON_UP_PIN,     INPUT_PULLUP);
   pinMode(BUTTON_DOWN_PIN,   INPUT_PULLUP);
@@ -83,13 +100,16 @@ void setup() {
 void loop() {
   check_buttons();
   now = millis();
+  heartbeat("loop");
+
   if (now - last_event < wait_for) { return; }
 
   advance_state();
+  last_event = now;
 }
 
 void advance_state() {
-  state_dump("advance_state: PRE ");
+  // state_dump("advance_state/PRE ");
 
   switch (current_state) {
     case INHALE:
@@ -99,7 +119,7 @@ void advance_state() {
       break;
 
     case EXHALE:
-      inhale;
+      inhale();
       current_state = INHALE;
       wait_for = inhale_hold_time;
       break;
@@ -109,20 +129,35 @@ void advance_state() {
       wait_for = 500;
   }
 
-  state_dump("advance_state: POST");
+  state_dump("advance_state/POST");
 }
 
 void inhale() {
+  // sprintf(msg, "--> %ld inhale for %d msec...", millis(), inhale_hold_time );
+  // suppressed: Serial.println(msg);
+  // lcd.setCursor(14, 0);
+  // lcd.print("IN");
+
   digitalWrite(RELAY_INHALE_PIN, HIGH);
   digitalWrite(RELAY_EXHALE_PIN, LOW);
 }
 
 void exhale() {
+  // sprintf(msg, "<-- %ld exhale for %d msec...", millis(), exhale_hold_time );
+  // suppressed: Serial.println(msg);
+  // lcd.setCursor(14, 0);
+  // lcd.print("ex");
+
   digitalWrite(RELAY_INHALE_PIN, LOW);
   digitalWrite(RELAY_EXHALE_PIN, LOW);
 }
 
 void hold() {
+  // sprintf(msg, "--- %ld hold   for %d msec...", millis(), exhale_hold_time );
+  // suppressed: Serial.println(msg);
+  // lcd.setCursor(14, 0);
+  // lcd.print("--");
+
   digitalWrite(RELAY_INHALE_PIN, LOW);
   digitalWrite(RELAY_EXHALE_PIN, LOW);
 }
@@ -165,7 +200,7 @@ void check_buttons() {
 
   // sprintf(msg, "UP:%d DN:%d RATE:%d RATIO:%d  <---- ADJUSTING...",
   //              up_pressed, down_pressed, rate_state, ratio_state);
-  // Serial.println(msg);
+  // suppressed: Serial.println(msg);
 
   if (rate_state && up_pressed) { rate_increase(); }
   if (rate_state && down_pressed) { rate_decrease(); }
@@ -176,19 +211,19 @@ void check_buttons() {
 }
 
 void rate_increase() {
-  cycle_time = min(6000, cycle_time + 100);
+  cycle_time = max(MIN_RATE, cycle_time - RATE_INCREMENT);
 }
 
 void rate_decrease() {
-  cycle_time = max(2000, cycle_time - 100);
+  cycle_time = min(MAX_RATE, cycle_time + RATE_INCREMENT);
 }
 
 void ratio_increase() {
-  ie_ratio = min(3.0, ie_ratio + 0.1);
+  ie_ratio = max(MIN_RATIO, ie_ratio - RATIO_INCREMENT);
 }
 
 void ratio_decrease() {
-  ie_ratio = max(1.5, ie_ratio - 0.1);
+  ie_ratio = min(MAX_RATIO, ie_ratio + RATIO_INCREMENT);
 
 }
 
@@ -202,8 +237,35 @@ void compute_delays() {
 }
 
 void state_dump(char *comment) {
-  // sprintf(msg, "%ld (%ld) %.10s %d ", now, next_appt, comment, current_state);
-  // Serial.println(msg);
+  // sprintf(msg, "%ld: runtime: %ldms last_event: %ldms waited_for: %ldms current_state: %d -- %s",
+  //               millis(), now, last_event, wait_for, current_state, comment);
+  // suppressed: Serial.println(msg);
+  lcd.setCursor(15, 1);
+  lcd.print(current_state == INHALE ? "I" : "E");
+}
+
+void heartbeat(char *comment) {
+  if (now - heartbeat_freq < last_heartbeat) { return; }
+  if (now < last_heartbeat) { return; } // wait for first log after boot.
+  last_heartbeat = now;
+
+  // LED and delays only during dev to prove it's still running. Will be removed.
+  digitalWrite(13, HIGH);
+  delay(100);
+  digitalWrite(13, LOW);
+  delay(100);
+  digitalWrite(13, HIGH);
+  delay(100);
+  digitalWrite(13, LOW);
+
+  sprintf(msg, "%ld %ld",
+                last_event, now);
+  // suppressed: Serial.println(msg);
+
+  lcd.setCursor(0, 0);
+  lcd.print("                ");
+  lcd.setCursor(0, 0);
+  lcd.print(msg);
 }
 
 void settings_dump() {
@@ -217,9 +279,10 @@ void settings_dump() {
   dtostrf(inhale_hold_time/1000.0,  3, 1, i);
   dtostrf(exhale_hold_time/1000.0,  3, 1, e);
 
-  sprintf(msg, "C=%s I:E=%s i=%s e=%s", c, ie, i, e);
-  Serial.println(msg);
+  // sprintf(msg, "C=%s I:E=%s i=%s e=%s", c, ie, i, e);
+  // Serial.println(msg);
 
+  sprintf(msg, "%s 1:%s ", c, ie);
   lcd.setCursor(0, 1);
   lcd.print(msg);
 }
