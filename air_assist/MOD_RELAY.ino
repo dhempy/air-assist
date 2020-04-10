@@ -7,10 +7,7 @@
 //What signal opens the relay
 #define RLY_OPEN_STATE HIGH
 
-bool RLY_INHALE_STATE;
-bool RLY_EXHALE_STATE;
-bool RLY_ALARM_STATE;
-bool RLY_4_STATE;
+
 
 
 
@@ -32,18 +29,18 @@ void initMOD_RELAY(){
 
 
 
-void rlyOPEN(int tmpNum){
-  DPRINTLN("Relay " + String(tmpNum) + ": Open");
-  switch(tmpNum){
-    case 1: // Inhale Valve
+void rlyOPEN(char tmpRLY){
+  DPRINTLN("Relay " + String(tmpRLY) + ": Open");
+  switch(tmpRLY){
+    case INHALE: // Inhale Valve
       digitalWrite(PIN_RLY_1, RLY_OPEN_STATE);
       RLY_INHALE_STATE = RLY_OPEN_STATE;
       break;
-    case 2: // Exhale Valve
+    case EXHALE: // Exhale Valve
       digitalWrite(PIN_RLY_2, RLY_OPEN_STATE);
       RLY_EXHALE_STATE = RLY_OPEN_STATE;
       break;
-    case 3: // Alarm
+    case ERROR: // Error
       digitalWrite(PIN_RLY_3, RLY_OPEN_STATE);
       RLY_ALARM_STATE = RLY_OPEN_STATE;
       break;
@@ -54,18 +51,18 @@ void rlyOPEN(int tmpNum){
   }
 }
 
-void rlyCLOSE(int tmpNum){
-  DPRINTLN("Relay " + String(tmpNum) + ": Close");
-  switch(tmpNum){
-    case 1: // Inhale Valve
+void rlyCLOSE(byte tmpRLY){
+  DPRINTLN("Relay " + String(tmpRLY) + ": Close");
+  switch(tmpRLY){
+    case INHALE: // Inhale Valve
       digitalWrite(PIN_RLY_1, !RLY_OPEN_STATE);
       RLY_INHALE_STATE = !RLY_OPEN_STATE;
       break;
-    case 2: // Exhale Valve
+    case EXHALE: // Exhale Valve
       digitalWrite(PIN_RLY_2, !RLY_OPEN_STATE);
       RLY_EXHALE_STATE = !RLY_OPEN_STATE;
       break;
-    case 3: // Alarm
+    case ERROR: // Error
       digitalWrite(PIN_RLY_3, !RLY_OPEN_STATE);
       RLY_ALARM_STATE = !RLY_OPEN_STATE;
       break;

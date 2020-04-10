@@ -10,13 +10,19 @@ void initMOD_LCD(){
   
   
 }
+void lcdCLEAR(){
+  lcd.clear();
+}
 
-
-void lcdPrint(String tmpStr, byte tmpCol, byte tmpRow){
+void lcdPRINT(String tmpStr, byte tmpCol, byte tmpRow){
   lcd.setCursor(tmpCol, tmpRow);
   lcd.print(tmpStr);
 }
 
-void lcdOxygen(){
-  lcdPrint("O:98%",15,1);
+void lcdSNR(){
+  if(DEVICE_STATE == RUNNING){
+    lcdPRINT("O:" + String(VAL_OXYGEN), 15, 1);
+    lcdPRINT("I:" + String(VAL_INHALE), 15, 2);
+    lcdPRINT("H:" + String(VAL_EXHALE), 15, 3);
+  }
 }

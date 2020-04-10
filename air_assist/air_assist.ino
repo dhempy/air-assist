@@ -42,128 +42,143 @@
   #define DPRINTLN(...)   
 #endif
 
+#define FOREACH_LABEL(LABEL) \
+        LABEL(UP)   \
+        LABEL(DOWN)   \
+        LABEL(SELECT)   \
+        LABEL(READY)   \
+        LABEL(START)  \
+        LABEL(STOP)   \
+        LABEL(INHALE) \
+        LABEL(EXHALE)  \
+        LABEL(RUNNING)  \
+        LABEL(ERROR)  \
+        LABEL(SETTINGS)  \
+
+#define GENERATE_ENUM(ENUM) ENUM,
+#define GENERATE_STRING(STRING) #STRING,
+
+enum ENUM_LABELS {
+    FOREACH_LABEL(GENERATE_ENUM)
+};
+
+static const char *LABEL_STR[] = {
+    FOREACH_LABEL(GENERATE_STRING)
+};
+
 byte VAL_INHALE;
 byte VAL_EXHALE;
 byte VAL_OXYGEN;
 
 bool BTN_UP_STATE;
 bool BTN_DOWN_STATE;
-bool BTN_RATIO_STATE;
-bool BTN_RATE_STATE;
+bool BTN_MENU_STATE;
+bool BTN_SELECT_STATE;
 
-long CYCLE_TIME = 3000;
-long INHALE_TIME = 1000;
-long EXHALE_TIME = 2000;
-float IE_RATIO = 2.0;
+bool RLY_INHALE_STATE;
+bool RLY_EXHALE_STATE;
+bool RLY_ALARM_STATE;
+bool RLY_4_STATE;
 
+int CYCLE_TIME = 3000; //1000 = 1 second
+double IE_RATIO = 1.2;
+int INHALE_TIME = 1000; 
+unsigned long INHALE_CURRENT;
+int EXHALE_TIME = 2000;
+unsigned long EXHALE_CURRENT;
 
+char CYCLE_STATE;
 
-
-
-enum state_enum {START, INHALE, EXHALE};
-
-unsigned long now = millis();
-unsigned long last_event = 0;
-unsigned long wait_for = 0;
-char current_state = START;
-
-
-
+char DEVICE_STATE;
+char MENU_SELECT;
+bool MENU_SHOW = true;
 
 void setup() {
   #ifdef DEBUG
     Serial.begin(115200);
     delay(1000);
   #endif
+  
   DPRINTLN("Air Assist");
   DPRINTLN("DEBUG: ENABLED");
   DPRINTLN("Loading Modules");
   
   initMOD_LCD();
-  lcdPrint("Air Assist",0,0);
   initMOD_INPUT();
   initMOD_RELAY();
-  //TODO: load settings from EEPROM
+  initMOD_EEPROM();
+  initMOD_MENU();
+
+  DEVICE_STATE = READY;
 
 
-  
-  DPRINTLN("Device Ready");
-  lcdPrint("Device Ready",2, 1);
-
- // compute_delays();
 }
 
 void loop() {
-  btnCheck();
-  snrCheck();
-  lcdOxygen();
   
-  //now = millis();
-  //if (now - last_event < wait_for) { return; }
+  snrCHECK();
+  menuSELECT();
+  
+  
+  
+  switch(DEVICE_STATE){
+    case READY:
+      lcdPRINT("DEVICE READY", 4, 0);
+      break;
+    case RUNNING:
+      lcdPRINT("DEVICE RUNNING", 3, 0);
+      if(!MENU_SHOW){
+        lcdSNR();
+      }
+      cycleRESPIRATION();
+      break;
+    case STOP:
+      lcdPRINT("DEVICE STOPPED", 3, 0);
+      break;
+    case ERROR:
+      lcdPRINT("DEVICE ERROR", 4, 0);
+      break;
+  }
+}
 
- // advance_state();
-
-
-
- 
+void cycleRESPIRATION(){
+  switch(CYCLE_STATE){
+    case INHALE:
+      lcdPRINT("INHALING", 4, 2);
+      if(INHALE_CURRENT == 0){
+        INHALE_CURRENT = millis();
+        rlyOPEN(INHALE);
+        rlyCLOSE(EXHALE);
+      }
+      if(millis() - INHALE_CURRENT > INHALE_TIME){
+        CYCLE_STATE = EXHALE;
+        EXHALE_CURRENT = millis();
+        rlyOPEN(EXHALE);
+        rlyCLOSE(INHALE);
+      }
+      break;
+    case EXHALE:
+      lcdPRINT("ENHALING", 4, 2);
+      if(EXHALE_CURRENT == 0){
+        EXHALE_CURRENT = millis();
+        rlyOPEN(EXHALE);
+        rlyCLOSE(INHALE);
+      }
+      if(millis() - EXHALE_CURRENT > EXHALE_TIME){
+        CYCLE_STATE = INHALE;
+        INHALE_CURRENT = millis();
+        rlyOPEN(INHALE);
+        rlyCLOSE(EXHALE);
+      }
+      break;
+  }
 }
 
 /*
-void advance_state() {
-  state_dump("advance_state: PRE ");
-
-  switch (current_state) {
-    case INHALE:
-      exhale();
-      current_state = EXHALE;
-      wait_for = EXHALE_TIME;
-      break;
-
-    case EXHALE:
-      inhale;
-      current_state = INHALE;
-      wait_for = INHALE_TIME;
-      break;
-
-    default:
-      current_state = EXHALE;
-      wait_for = 500;
-  }
-
-  state_dump("advance_state: POST");
-}
-
-void inhale() {
-  digitalWrite(RELAY_INHALE_PIN, HIGH);
-  digitalWrite(RELAY_EXHALE_PIN, LOW);
-}
-
-void exhale() {
-  digitalWrite(RELAY_INHALE_PIN, LOW);
-  digitalWrite(RELAY_EXHALE_PIN, LOW);
-}
-
-void hold() {
-  digitalWrite(RELAY_INHALE_PIN, LOW);
-  digitalWrite(RELAY_EXHALE_PIN, LOW);
-}
 
 
 
 
-
-
-  // sprintf(msg, "UP:%d DN:%d RATE:%d RATIO:%d  <---- ADJUSTING...",
-  //              up_pressed, down_pressed, rate_state, ratio_state);
-  // Serial.println(msg);
-
-  if (rate_state && up_pressed) { rate_increase(); }
-  if (rate_state && down_pressed) { rate_decrease(); }
-  if (ratio_state && up_pressed) { ratio_increase(); }
-  if (ratio_state && down_pressed) { ratio_decrease(); }
-
-  compute_delays();
-}
 
 void rate_increase() {
   CYCLE_TIME = min(6000, CYCLE_TIME + 100);
@@ -191,26 +206,6 @@ void compute_delays() {
   settings_dump();
 }
 
-void state_dump(char *comment) {
-  // sprintf(msg, "%ld (%ld) %.10s %d ", now, next_appt, comment, current_state);
-  // Serial.println(msg);
-}
 
-void settings_dump() {
-  char c[16];
-  char ie[16];
-  char i[16];
-  char e[16];
 
-  dtostrf((float)CYCLE_TIME/1000.0, 3, 1, c);
-  dtostrf(IE_RATIO,                 3, 1, ie);
-  dtostrf(INHALE_TIME/1000.0,  3, 1, i);
-  dtostrf(EXHALE_TIME/1000.0,  3, 1, e);
-
-  sprintf(msg, "C=%s I:E=%s i=%s e=%s", c, ie, i, e);
-  Serial.println(msg);
-
-  lcd.setCursor(0, 1);
-  lcd.print(msg);
-}
 */
