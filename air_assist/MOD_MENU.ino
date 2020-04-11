@@ -5,6 +5,10 @@ void initMOD_MENU(){
   MENU_SELECT = START;
 }
 
+
+/*
+ * 
+ */
 void menuSELECT(){
 
   if(MENU_SHOW){
@@ -58,6 +62,12 @@ void menuSELECT(){
           lcdCLEAR();
           MENU_SELECT = START;
           break;
+      }
+    }
+    if(DEVICE_STATE == RUNNING){
+      if(millis() - MENU_CURRENT > MENU_TIME){
+        MENU_SHOW = false;
+        lcdCLEAR();
       }
     }
   }

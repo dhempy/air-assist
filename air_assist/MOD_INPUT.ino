@@ -58,9 +58,9 @@ char btnMENU_CHECK(){
     
   if(BTN_MENU.falling()){
     DPRINTLN("BTN_MENU: Pressed");
-    return true;
-  }else{
-    return false;
+    lcdCLEAR();
+    MENU_CURRENT = millis();
+    MENU_SHOW = true;
   }
 }
 

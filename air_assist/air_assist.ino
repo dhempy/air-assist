@@ -70,10 +70,7 @@ byte VAL_INHALE;
 byte VAL_EXHALE;
 byte VAL_OXYGEN;
 
-bool BTN_UP_STATE;
-bool BTN_DOWN_STATE;
-bool BTN_MENU_STATE;
-bool BTN_SELECT_STATE;
+
 
 bool RLY_INHALE_STATE;
 bool RLY_EXHALE_STATE;
@@ -92,6 +89,8 @@ char CYCLE_STATE;
 char DEVICE_STATE;
 char MENU_SELECT;
 bool MENU_SHOW = true;
+int MENU_TIME = 10000;
+unsigned long MENU_CURRENT;
 
 void setup() {
   #ifdef DEBUG
@@ -115,7 +114,7 @@ void setup() {
 }
 
 void loop() {
-  
+  btnMENU_CHECK();
   snrCHECK();
   menuSELECT();
   
@@ -134,6 +133,8 @@ void loop() {
       break;
     case STOP:
       lcdPRINT("DEVICE STOPPED", 3, 0);
+      rlyCLOSE(INHALE);
+      rlyCLOSE(EXHALE);
       break;
     case ERROR:
       lcdPRINT("DEVICE ERROR", 4, 0);
@@ -144,7 +145,9 @@ void loop() {
 void cycleRESPIRATION(){
   switch(CYCLE_STATE){
     case INHALE:
-      lcdPRINT("INHALING", 4, 2);
+      if(!MENU_SHOW){
+        lcdPRINT("INHALING", 4, 2);
+      }
       if(INHALE_CURRENT == 0){
         INHALE_CURRENT = millis();
         rlyOPEN(INHALE);
@@ -158,7 +161,9 @@ void cycleRESPIRATION(){
       }
       break;
     case EXHALE:
-      lcdPRINT("ENHALING", 4, 2);
+      if(!MENU_SHOW){
+        lcdPRINT("ENHALING", 4, 2);
+      }
       if(EXHALE_CURRENT == 0){
         EXHALE_CURRENT = millis();
         rlyOPEN(EXHALE);
