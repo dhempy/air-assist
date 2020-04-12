@@ -30,6 +30,8 @@
 #define DEBUG
 
 
+#define LCD_I2C_ADDRESS 0x27 // example 0x27
+
 /*
  * This script works just like Serial.print or Serial.println but it will only be called
  * when the #define DEBUG is uncommented.

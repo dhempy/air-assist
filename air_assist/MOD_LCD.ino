@@ -1,7 +1,9 @@
 #include "Wire.h"
 #include <LiquidCrystal_I2C.h>
 
-LiquidCrystal_I2C lcd(0x27,20,4);
+
+
+LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS,20,4);
 
 void initMOD_LCD(){
   DPRINTLN(" MOD_LCD: LOADED");
