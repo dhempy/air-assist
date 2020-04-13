@@ -2,12 +2,12 @@ compile:
   libraries: ~
   platforms:
     - uno
-    - due
-    - leonardo
+    # - due
+    # - leonardo
 
 unittest:
   libraries: ~
   platforms:
     - uno
-    - due
-    - leonardo
+    # - due
+    # - leonardo
