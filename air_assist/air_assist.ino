@@ -6,7 +6,7 @@
 // It activates solenoid valves to assist a patient inhaling and exhaling.
 // It allows the practitioner to control the rate of respiration.
 //
-// Copyright (C) 2020 David Hempy
+// Copyright (C) 2020 David Hempy, Russell Hummerick
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -34,13 +34,23 @@
  * This script works just like Serial.print or Serial.println but it will only be called
  * when the #define DEBUG is uncommented.
  */
-#ifdef DEBUG   
-  #define DPRINT(...)    Serial.print(__VA_ARGS__)  
-  #define DPRINTLN(...)  Serial.println(__VA_ARGS__) 
+#ifdef DEBUG
+  #define DPRINT(...)    Serial.print(__VA_ARGS__)
+  #define DPRINTLN(...)  Serial.println(__VA_ARGS__)
 #else
-  #define DPRINT(...)    
-  #define DPRINTLN(...)   
+  #define DPRINT(...)
+  #define DPRINTLN(...)
 #endif
+
+#define BPM_DEFAULT        12
+#define BPM_MIN            10
+#define BPM_MAX            20
+#define BPM_INCREMENT     100
+
+#define IE_RATIO_DEFAULT    2.5
+#define IE_RATIO_MIN        1.5
+#define IE_RATIO_DEFAULT    3.0
+#define IE_RATIO_INCREMENT  0.25
 
 #define FOREACH_LABEL(LABEL) \
         LABEL(UP)   \
@@ -57,6 +67,8 @@
 
 #define GENERATE_ENUM(ENUM) ENUM,
 #define GENERATE_STRING(STRING) #STRING,
+
+
 
 enum ENUM_LABELS {
     FOREACH_LABEL(GENERATE_ENUM)
@@ -77,12 +89,16 @@ bool RLY_EXHALE_STATE;
 bool RLY_ALARM_STATE;
 bool RLY_4_STATE;
 
-int CYCLE_TIME = 3000; //1000 = 1 second
-double IE_RATIO = 1.2;
-int INHALE_TIME = 1000; 
-unsigned long INHALE_CURRENT;
-int EXHALE_TIME = 2000;
-unsigned long EXHALE_CURRENT;
+
+byte VAL_BPM = BPM_DEFAULT;
+float VAL_IE_RATIO = IE_RATIO_DEFAULT;
+
+int VAL_INHALE_TIME;
+unsigned long VAL_INHALE_CURRENT;
+int VAL_EXHALE_TIME;
+unsigned long VAL_EXHALE_CURRENT;
+
+
 
 char CYCLE_STATE;
 
@@ -92,34 +108,36 @@ bool MENU_SHOW = true;
 int MENU_TIME = 10000;
 unsigned long MENU_CURRENT;
 
+const int MSG_LEN = 254;
+char msg[MSG_LEN+1];
+
 void setup() {
   #ifdef DEBUG
     Serial.begin(115200);
     delay(1000);
   #endif
-  
+
   DPRINTLN("Air Assist");
   DPRINTLN("DEBUG: ENABLED");
   DPRINTLN("Loading Modules");
-  
+
   initMOD_LCD();
   initMOD_INPUT();
   initMOD_RELAY();
   initMOD_EEPROM();
   initMOD_MENU();
 
+  test_calcBPM();
+
   DEVICE_STATE = READY;
-
-
 }
 
 void loop() {
   btnMENU_CHECK();
   snrCHECK();
   menuSELECT();
-  
-  
-  
+  calcBPM();
+
   switch(DEVICE_STATE){
     case READY:
       lcdPRINT("DEVICE READY", 4, 0);
@@ -127,7 +145,7 @@ void loop() {
     case RUNNING:
       lcdPRINT("DEVICE RUNNING", 3, 0);
       if(!MENU_SHOW){
-        lcdSNR();
+        //lcdSNR();
       }
       cycleRESPIRATION();
       break;
@@ -146,32 +164,32 @@ void cycleRESPIRATION(){
   switch(CYCLE_STATE){
     case INHALE:
       if(!MENU_SHOW){
-        lcdPRINT("INHALING", 4, 2);
+        lcdPRINT(LABEL_STR[INHALE], 7, 1);
       }
-      if(INHALE_CURRENT == 0){
-        INHALE_CURRENT = millis();
+      if(VAL_INHALE_CURRENT == 0){
+        VAL_INHALE_CURRENT = millis();
         rlyOPEN(INHALE);
         rlyCLOSE(EXHALE);
       }
-      if(millis() - INHALE_CURRENT > INHALE_TIME){
+      if(millis() - VAL_INHALE_CURRENT > VAL_INHALE_TIME){
         CYCLE_STATE = EXHALE;
-        EXHALE_CURRENT = millis();
+        VAL_EXHALE_CURRENT = millis();
         rlyOPEN(EXHALE);
         rlyCLOSE(INHALE);
       }
       break;
     case EXHALE:
       if(!MENU_SHOW){
-        lcdPRINT("ENHALING", 4, 2);
+        lcdPRINT(LABEL_STR[EXHALE], 7, 1);
       }
-      if(EXHALE_CURRENT == 0){
-        EXHALE_CURRENT = millis();
+      if(VAL_EXHALE_CURRENT == 0){
+        VAL_EXHALE_CURRENT = millis();
         rlyOPEN(EXHALE);
         rlyCLOSE(INHALE);
       }
-      if(millis() - EXHALE_CURRENT > EXHALE_TIME){
+      if(millis() - VAL_EXHALE_CURRENT > VAL_EXHALE_TIME){
         CYCLE_STATE = INHALE;
-        INHALE_CURRENT = millis();
+        VAL_INHALE_CURRENT = millis();
         rlyOPEN(INHALE);
         rlyCLOSE(EXHALE);
       }
@@ -179,38 +197,43 @@ void cycleRESPIRATION(){
   }
 }
 
-/*
-
-
-
-
-
-void rate_increase() {
-  CYCLE_TIME = min(6000, CYCLE_TIME + 100);
+void calcBPM() { // Calculates the inhale and exhale times based on the BPM(Breaths Per Minute) and the ratio
+  float cycle_time = (60000 / VAL_BPM);
+  VAL_INHALE_TIME = int((float)cycle_time / (VAL_IE_RATIO + 1.0));
+  VAL_EXHALE_TIME = cycle_time - VAL_INHALE_TIME;
 }
 
-void rate_decrease() {
-  CYCLE_TIME = max(2000, CYCLE_TIME - 100);
+void test_calcBPM() {
+  test_calcBPM_example(15, 3.0, 1000, 3000);
+  test_calcBPM_example(20, 1.0, 1500, 1500);
+  test_calcBPM_example(12, 2.0, 1666, 3334);
+  test_calcBPM_example(13, 2.5, 1318, 3297);
+
+  VAL_BPM = BPM_DEFAULT;
+  VAL_IE_RATIO = IE_RATIO_DEFAULT;
 }
 
-void ratio_increase() {
-  IE_RATIO = min(3.0, IE_RATIO + 0.1);
+void test_calcBPM_example(byte bpm, float ie_ratio, int expected_inhale_time, int expected_exhale_time) {
+
+  VAL_BPM = bpm;
+  VAL_IE_RATIO = ie_ratio;
+
+  calcBPM();
+
+  if (VAL_INHALE_TIME != expected_inhale_time) { DPRINTLN("Oops: ============>"); }
+
+  snprintf(msg, MSG_LEN, "For (bpm=%d, ie=%s), expected VAL_INHALE_TIME to be %d and got %d",
+                          bpm, f2s(ie_ratio), expected_inhale_time, VAL_INHALE_TIME);
+  DPRINTLN(msg);
+
+  if (VAL_EXHALE_TIME != expected_exhale_time) { DPRINTLN("Oops: ============>"); }
+  snprintf(msg, MSG_LEN, "For (bpm=%d, ie=%s), expected VAL_EXHALE_TIME to be %d and got %d",
+                          bpm, f2s(ie_ratio), expected_exhale_time, VAL_EXHALE_TIME);
+  DPRINTLN(msg);
 }
 
-void ratio_decrease() {
-  IE_RATIO = max(1.5, IE_RATIO - 0.1);
-
+char *f2s(float val) {
+  static char fstr[6];  // Note - this will fail if you have two calls to f2s simultaneously.
+  dtostrf(val, 5, 3, fstr);
+  return fstr;
 }
-
-void compute_delays() {
-  // TODO: write tests.
-  float one_cycle = 1.0 + IE_RATIO;
-  INHALE_TIME = int((float)CYCLE_TIME / one_cycle);
-  EXHALE_TIME = int(IE_RATIO * INHALE_TIME);
-
-  settings_dump();
-}
-
-
-
-*/
