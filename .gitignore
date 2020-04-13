@@ -53,6 +53,9 @@ dkms.conf
 
 .DS_store
 
+temp/
+air_assist/temp/
+
 # arduino_ci
 /.bundle/
 /.yardoc
