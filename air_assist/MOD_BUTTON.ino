@@ -2,11 +2,8 @@
 
 #define PIN_BTN_UP      2
 #define PIN_BTN_DOWN    3
-#define PIN_BTN_MENU   4
-#define PIN_BTN_SELECT    5
-#define PIN_SNR_INHALE  A0
-#define PIN_SNR_EXHALE  A1
-#define PIN_SNR_OXYGEN  A2
+#define PIN_BTN_MENU    4
+#define PIN_BTN_SELECT  5
 
 #define DB_DELAY 50
 
@@ -26,9 +23,6 @@ void initMOD_INPUT(){
   pinMode(PIN_BTN_DOWN, INPUT_PULLUP);
   pinMode(PIN_BTN_MENU, INPUT_PULLUP);
   pinMode(PIN_BTN_SELECT, INPUT_PULLUP);
-  pinMode(PIN_SNR_INHALE, INPUT);
-  pinMode(PIN_SNR_EXHALE, INPUT);
-  pinMode(PIN_SNR_OXYGEN, INPUT);
 }
 
 char btnUP_CHECK(){
@@ -73,12 +67,4 @@ bool btnSELECT_CHECK(){
   }else{
     return false;
   }
-}
-
-//Loads sensor data
-void snrCHECK(){
-  VAL_INHALE = map(analogRead(PIN_SNR_INHALE), 0, 1024, 0, 100);
-  VAL_EXHALE = map(analogRead(PIN_SNR_EXHALE), 0, 1024, 0, 100);
-  VAL_OXYGEN = map(analogRead(PIN_SNR_OXYGEN), 0, 1024, 0, 100);
-  
 }
