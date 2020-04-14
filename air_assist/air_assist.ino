@@ -124,7 +124,7 @@ void setup() {
   init_mod_relay();
   init_mod_eeprom();
   init_mod_menu();
-  initMOD_SENSOR();
+  init_mod_sensor();
 
   test_calc_bpm();
 
