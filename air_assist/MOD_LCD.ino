@@ -21,8 +21,6 @@ void lcdPRINT(String tmpStr, byte tmpCol, byte tmpRow){
 
 void lcdSNR(){
   if(DEVICE_STATE == RUNNING){
-    lcdPRINT("O:" + String(VAL_OXYGEN), 15, 1);
-    lcdPRINT("I:" + String(VAL_INHALE), 15, 2);
-    lcdPRINT("H:" + String(VAL_EXHALE), 15, 3);
+    lcdPRINT("PSI:" + String(SNR_MPR_PSI), 11, 3);
   }
 }

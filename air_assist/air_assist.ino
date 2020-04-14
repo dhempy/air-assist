@@ -82,7 +82,7 @@ byte VAL_INHALE;
 byte VAL_EXHALE;
 byte VAL_OXYGEN;
 
-
+float SNR_MPR_PSI;
 
 bool RLY_INHALE_STATE;
 bool RLY_EXHALE_STATE;
@@ -126,6 +126,7 @@ void setup() {
   initMOD_RELAY();
   initMOD_EEPROM();
   initMOD_MENU();
+  initMOD_SENSOR();
 
   test_calcBPM();
 
@@ -145,7 +146,7 @@ void loop() {
     case RUNNING:
       lcdPRINT("DEVICE RUNNING", 3, 0);
       if(!MENU_SHOW){
-        //lcdSNR();
+        lcdSNR();
       }
       cycleRESPIRATION();
       break;
