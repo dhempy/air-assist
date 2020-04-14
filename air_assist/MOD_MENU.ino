@@ -1,17 +1,17 @@
 void init_mod_menu() {
   dprintln(" MOD_MENU: LOADED");
-  menu_selected = START;
+  MENU_SELECT = START;
 }
 
 void menu_select() {
-  if (!menu_show) { return; }
+  if (!menu_show) return;
 
   lcd_print("        MENU        ", 0, 1);
   lcd_print("                    ", 0, 2);
   lcd_print(LABEL_STR[MENU_SELECT], 0, 3);
 
   if (btn_select_check()) {
-    switch(menu_selected) {
+    switch(MENU_SELECT) {
       case START:
         lcd_clear();
         device_state = RUNNING;
@@ -29,35 +29,35 @@ void menu_select() {
   }
 
   if (btn_up_check()) {
-    switch(menu_selected) {
+    switch(MENU_SELECT) {
       case START:
         lcd_clear();
-        menu_selected = SETTINGS;
+        MENU_SELECT = SETTINGS;
         break;
       case STOP:
         lcd_clear();
-        menu_selected = START;
+        MENU_SELECT = START;
         break;
       case SETTINGS:
         lcd_clear();
-        menu_selected = STOP;
+        MENU_SELECT = STOP;
         break;
     }
   }
 
   if (btn_down_check()) {
-    switch(menu_selected) {
+    switch(MENU_SELECT) {
       case START:
         lcd_clear();
-        menu_selected = STOP;
+        MENU_SELECT = STOP;
         break;
       case STOP:
         lcd_clear();
-        menu_selected = SELECT;
+        MENU_SELECT = SELECT;
         break;
       case SETTINGS:
         lcd_clear();
-        menu_selected = START;
+        MENU_SELECT = START;
         break;
     }
   }
