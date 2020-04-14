@@ -17,5 +17,5 @@ void initMOD_SENSOR(){
 }
 //Loads sensor data
 void snrCHECK(){
-  SNR_MPR_PSI = MPR.readPressure() / 68.947572932;
+  snr_mpr_psi = MPR.readPressure() / 68.947572932;
 }

@@ -2,8 +2,11 @@
 
 #define PIN_BTN_UP      2
 #define PIN_BTN_DOWN    3
-#define PIN_BTN_MENU    4
-#define PIN_BTN_SELECT  5
+#define PIN_BTN_MENU   4
+#define PIN_BTN_SELECT    5
+#define PIN_SNR_INHALE  A0
+#define PIN_SNR_EXHALE  A1
+#define PIN_SNR_OXYGEN  A2
 
 #define DEBOUNCE_DELAY 50
 
@@ -20,6 +23,9 @@ void init_mod_input() {
   pinMode(PIN_BTN_DOWN, INPUT_PULLUP);
   pinMode(PIN_BTN_MENU, INPUT_PULLUP);
   pinMode(PIN_BTN_SELECT, INPUT_PULLUP);
+  pinMode(PIN_SNR_INHALE, INPUT);
+  pinMode(PIN_SNR_EXHALE, INPUT);
+  pinMode(PIN_SNR_OXYGEN, INPUT);
 }
 
 bool btn_up_check() {
@@ -64,4 +70,11 @@ bool btn_select_check() {
   } else {
     return false;
   }
+}
+
+//Loads sensor data
+void snr_check() {
+  val_inhale = map(analogRead(PIN_SNR_INHALE), 0, 1024, 0, 100);
+  val_exhale = map(analogRead(PIN_SNR_EXHALE), 0, 1024, 0, 100);
+  val_oxygen = map(analogRead(PIN_SNR_OXYGEN), 0, 1024, 0, 100);
 }
