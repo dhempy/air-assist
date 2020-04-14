@@ -1,2 +1,3 @@
 
 void cycleRESPIRATION();
+void calcBPM();
