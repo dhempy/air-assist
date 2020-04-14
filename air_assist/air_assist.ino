@@ -101,7 +101,7 @@ int inhale_duration;
 char cycle_state;
 
 char device_state;
-char menu_selected;
+char MENU_SELECT;
 bool menu_show = true;
 int menu_duration = 10000;
 unsigned long menu_started_at;
