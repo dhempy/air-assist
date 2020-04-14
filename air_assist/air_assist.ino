@@ -24,7 +24,7 @@
 #include <EEPROM.h>
 
 
-#define VERSION 0.0.4
+#define VERSION 0.0.5
 
 //Uncomment to enable debug mode
 #define DEBUG
@@ -35,11 +35,11 @@
  * when the #define DEBUG is uncommented.
  */
 #ifdef DEBUG
-  #define DPRINT(...)    Serial.print(__VA_ARGS__)
-  #define DPRINTLN(...)  Serial.println(__VA_ARGS__)
+  #define dprint(...)    Serial.print(__VA_ARGS__)
+  #define dprintln(...)  Serial.println(__VA_ARGS__)
 #else
-  #define DPRINT(...)
-  #define DPRINTLN(...)
+  #define dprint(...)
+  #define dprintln(...)
 #endif
 
 #define BPM_DEFAULT        12
@@ -78,38 +78,33 @@ static const char *LABEL_STR[] = {
     FOREACH_LABEL(GENERATE_STRING)
 };
 
-byte VAL_INHALE;
-byte VAL_EXHALE;
-byte VAL_OXYGEN;
+byte val_inhale;
+byte val_exhale;
+byte val_oxygen;
 
+bool rly_inhale_state;
+bool rly_exhale_state;
+bool rly_alarm_state;
+bool rly_4_state;
 
+byte val_bpm = BPM_DEFAULT;
+float val_ie_ratio = IE_RATIO_DEFAULT;
 
-bool RLY_INHALE_STATE;
-bool RLY_EXHALE_STATE;
-bool RLY_ALARM_STATE;
-bool RLY_4_STATE;
+unsigned long inhale_started_at;
+unsigned long exhale_started_at;
+int exhale_duration;
+int inhale_duration;
 
+char cycle_state;
 
-byte VAL_BPM = BPM_DEFAULT;
-float VAL_IE_RATIO = IE_RATIO_DEFAULT;
+char device_state;
+char menu_selected;
+bool menu_show = true;
+int menu_duration = 10000;
+unsigned long menu_started_at;
 
-int VAL_INHALE_TIME;
-unsigned long VAL_INHALE_CURRENT;
-int VAL_EXHALE_TIME;
-unsigned long VAL_EXHALE_CURRENT;
-
-
-
-char CYCLE_STATE;
-
-char DEVICE_STATE;
-char MENU_SELECT;
-bool MENU_SHOW = true;
-int MENU_TIME = 10000;
-unsigned long MENU_CURRENT;
-
-const int MSG_LEN = 254;
-char msg[MSG_LEN+1];
+#define MSG_LEN 254
+char msg[MSG_LEN + 1];
 
 void setup() {
   #ifdef DEBUG
@@ -117,119 +112,122 @@ void setup() {
     delay(1000);
   #endif
 
-  DPRINTLN("Air Assist");
-  DPRINTLN("DEBUG: ENABLED");
-  DPRINTLN("Loading Modules");
+  dprintln("Air Assist");
+  dprintln("DEBUG: ENABLED");
+  dprintln("Loading Modules");
 
-  initMOD_LCD();
-  initMOD_INPUT();
-  initMOD_RELAY();
-  initMOD_EEPROM();
-  initMOD_MENU();
+  init_mod_lcd();
+  init_mod_input();
+  init_mod_relay();
+  init_mod_eeprom();
+  init_mod_menu();
 
-  test_calcBPM();
+  test_calc_bpm();
 
-  DEVICE_STATE = READY;
+  device_state = READY;
 }
 
 void loop() {
-  btnMENU_CHECK();
-  snrCHECK();
-  menuSELECT();
-  calcBPM();
+  btn_menu_check();
+  snr_check();
+  menu_select();
+  calc_bpm();
 
-  switch(DEVICE_STATE){
+  switch(device_state) {
     case READY:
-      lcdPRINT("DEVICE READY", 4, 0);
+      lcd_print("DEVICE READY", 4, 0);
       break;
     case RUNNING:
-      lcdPRINT("DEVICE RUNNING", 3, 0);
-      if(!MENU_SHOW){
-        //lcdSNR();
+      lcd_print("DEVICE RUNNING", 3, 0);
+      if (!menu_show) {
+        //lcd_show_sensors();
       }
-      cycleRESPIRATION();
+      cycle_respiration();
       break;
     case STOP:
-      lcdPRINT("DEVICE STOPPED", 3, 0);
-      rlyCLOSE(INHALE);
-      rlyCLOSE(EXHALE);
+      lcd_print("DEVICE STOPPED", 3, 0);
+      rly_close(INHALE);
+      rly_close(EXHALE);
       break;
     case ERROR:
-      lcdPRINT("DEVICE ERROR", 4, 0);
+      lcd_print("DEVICE ERROR", 4, 0);
       break;
   }
 }
 
-void cycleRESPIRATION(){
-  switch(CYCLE_STATE){
+void cycle_respiration() {
+  switch(cycle_state) {
     case INHALE:
-      if(!MENU_SHOW){
-        lcdPRINT(LABEL_STR[INHALE], 7, 1);
+      if (!menu_show) {
+        lcd_print(LABEL_STR[INHALE], 7, 1);
       }
-      if(VAL_INHALE_CURRENT == 0){
-        VAL_INHALE_CURRENT = millis();
+      if (inhale_started_at == 0) {
+        inhale_started_at = millis();
         rlyOPEN(INHALE);
-        rlyCLOSE(EXHALE);
+        rly_close(EXHALE);
       }
-      if(millis() - VAL_INHALE_CURRENT > VAL_INHALE_TIME){
-        CYCLE_STATE = EXHALE;
-        VAL_EXHALE_CURRENT = millis();
+      if (millis() - inhale_started_at > inhale_duration) {
+        cycle_state = EXHALE;
+        exhale_started_at = millis();
         rlyOPEN(EXHALE);
-        rlyCLOSE(INHALE);
+        rly_close(INHALE);
       }
       break;
+
     case EXHALE:
-      if(!MENU_SHOW){
-        lcdPRINT(LABEL_STR[EXHALE], 7, 1);
+      if (!menu_show) {
+        lcd_print(LABEL_STR[EXHALE], 7, 1);
       }
-      if(VAL_EXHALE_CURRENT == 0){
-        VAL_EXHALE_CURRENT = millis();
+      if (exhale_started_at == 0) {
+        exhale_started_at = millis();
         rlyOPEN(EXHALE);
-        rlyCLOSE(INHALE);
+        rly_close(INHALE);
       }
-      if(millis() - VAL_EXHALE_CURRENT > VAL_EXHALE_TIME){
-        CYCLE_STATE = INHALE;
-        VAL_INHALE_CURRENT = millis();
+      if (millis() - exhale_started_at > exhale_duration) {
+        cycle_state = INHALE;
+        inhale_started_at = millis();
         rlyOPEN(INHALE);
-        rlyCLOSE(EXHALE);
+        rly_close(EXHALE);
       }
       break;
+
+    default:
+      cycle_state = INHALE;
   }
 }
 
-void calcBPM() { // Calculates the inhale and exhale times based on the BPM(Breaths Per Minute) and the ratio
-  float cycle_time = (60000 / VAL_BPM);
-  VAL_INHALE_TIME = int((float)cycle_time / (VAL_IE_RATIO + 1.0));
-  VAL_EXHALE_TIME = cycle_time - VAL_INHALE_TIME;
+void calc_bpm() { // Calculates the inhale and exhale times based on the BPM(Breaths Per Minute) and the ratio
+  float cycle_duration = (60000 / val_bpm);
+  inhale_duration = int((float)cycle_duration / (val_ie_ratio + 1.0));
+  exhale_duration = cycle_duration - inhale_duration;
 }
 
-void test_calcBPM() {
-  test_calcBPM_example(15, 3.0, 1000, 3000);
-  test_calcBPM_example(20, 1.0, 1500, 1500);
-  test_calcBPM_example(12, 2.0, 1666, 3334);
-  test_calcBPM_example(13, 2.5, 1318, 3297);
+void test_calc_bpm() {
+  test_calc_bpm_example(15, 3.0, 1000, 3000);
+  test_calc_bpm_example(20, 1.0, 1500, 1500);
+  test_calc_bpm_example(12, 2.0, 1666, 3334);
+  test_calc_bpm_example(13, 2.5, 1318, 3297);
 
-  VAL_BPM = BPM_DEFAULT;
-  VAL_IE_RATIO = IE_RATIO_DEFAULT;
+  val_bpm = BPM_DEFAULT;
+  val_ie_ratio = IE_RATIO_DEFAULT;
 }
 
-void test_calcBPM_example(byte bpm, float ie_ratio, int expected_inhale_time, int expected_exhale_time) {
+void test_calc_bpm_example(byte bpm, float ie_ratio, int expected_inhale_time, int expected_exhale_time) {
+  val_bpm = bpm;
+  val_ie_ratio = ie_ratio;
 
-  VAL_BPM = bpm;
-  VAL_IE_RATIO = ie_ratio;
+  calc_bpm();
 
-  calcBPM();
+  if (inhale_duration != expected_inhale_time) { dprintln("Oops: ============>"); }
 
-  if (VAL_INHALE_TIME != expected_inhale_time) { DPRINTLN("Oops: ============>"); }
+  snprintf(msg, MSG_LEN, "For (bpm=%d, ie=%s), expected inhale_duration to be %d and got %d",
+                          bpm, f2s(ie_ratio), expected_inhale_time, inhale_duration);
+  dprintln(msg);
 
-  snprintf(msg, MSG_LEN, "For (bpm=%d, ie=%s), expected VAL_INHALE_TIME to be %d and got %d",
-                          bpm, f2s(ie_ratio), expected_inhale_time, VAL_INHALE_TIME);
-  DPRINTLN(msg);
-
-  if (VAL_EXHALE_TIME != expected_exhale_time) { DPRINTLN("Oops: ============>"); }
-  snprintf(msg, MSG_LEN, "For (bpm=%d, ie=%s), expected VAL_EXHALE_TIME to be %d and got %d",
-                          bpm, f2s(ie_ratio), expected_exhale_time, VAL_EXHALE_TIME);
-  DPRINTLN(msg);
+  if (exhale_duration != expected_exhale_time) { dprintln("Oops: ============>"); }
+  snprintf(msg, MSG_LEN, "For (bpm=%d, ie=%s), expected exhale_duration to be %d and got %d",
+                          bpm, f2s(ie_ratio), expected_exhale_time, exhale_duration);
+  dprintln(msg);
 }
 
 char *f2s(float val) {
