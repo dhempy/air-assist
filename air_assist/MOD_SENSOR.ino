@@ -7,15 +7,15 @@
 Adafruit_MPRLS MPR = Adafruit_MPRLS(SNR_MPR_RST_PIN, SNR_MPR_EOC_PIN);
 
 void init_mod_sensor(){
-  DPRINT(" MOD_SENSOR: ");
+  dprint(" MOD_SENSOR: ");
   if(!MPR.begin()){
-    DPRINT("ERROR");
-    DPRINTLN("Failed to find MPRLS Sensor");
+    dprint("ERROR");
+    dprintln("Failed to find MPRLS Sensor");
   }else{
-    DPRINT("LOADED");
+    dprintln("LOADED");
   }
 }
 //Loads sensor data
-void snrCHECK(){
+void snr_check(){
   snr_mpr_psi = MPR.readPressure() / 68.947572932;
 }
