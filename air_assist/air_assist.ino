@@ -119,23 +119,45 @@ void setup() {
   dprintln("DEBUG: ENABLED");
   dprintln("Loading Modules");
 
-  init_mod_lcd();
+  // init_mod_lcd();
   init_mod_input();
   init_mod_relay();
   init_mod_eeprom();
   init_mod_menu();
   init_mod_sensor();
 
-  test_calc_bpm();
-
+  
   device_state = READY;
+  dprintln("end of init!");
+
 }
 
+unsigned long pressure_taken_at = 0;
+//byte pressure_interval = 1000; // ms
+
 void loop() {
+  delay(100);
+  unsigned long now = millis();
+
+  dprint(".");
+  // dprintln("snr_check...");
+
+  if (now - pressure_taken_at >= 1000) { snr_check(); pressure_taken_at = now; }
+//  if (now - pressure_taken_at >= pressure_interval) { snr_check(); pressure_taken_at = now; }
+
+//  return; /////////////////////////////////////////////////////////// <=================
+  
+  
+
   btn_menu_check();
-  snr_check();
+
+  // dprintln("menu_select...");
+
+
   menu_select();
+  // dprintln("calc_bpm...");
   calc_bpm();
+  // dprintln("switch...");
 
   switch(device_state) {
     case READY:
@@ -204,38 +226,4 @@ void calc_bpm() { // Calculates the inhale and exhale times based on the BPM(Bre
   float cycle_duration = (60000 / val_bpm);
   inhale_duration = int((float)cycle_duration / (val_ie_ratio + 1.0));
   exhale_duration = cycle_duration - inhale_duration;
-}
-
-void test_calc_bpm() {
-  test_calc_bpm_example(15, 3.0, 1000, 3000);
-  test_calc_bpm_example(20, 1.0, 1500, 1500);
-  test_calc_bpm_example(12, 2.0, 1666, 3334);
-  test_calc_bpm_example(13, 2.5, 1318, 3297);
-
-  val_bpm = BPM_DEFAULT;
-  val_ie_ratio = IE_RATIO_DEFAULT;
-}
-
-void test_calc_bpm_example(byte bpm, float ie_ratio, int expected_inhale_time, int expected_exhale_time) {
-  val_bpm = bpm;
-  val_ie_ratio = ie_ratio;
-
-  calc_bpm();
-
-  if (inhale_duration != expected_inhale_time) { dprintln("Oops: ============>"); }
-
-  snprintf(msg, MSG_LEN, "For (bpm=%d, ie=%s), expected inhale_duration to be %d and got %d",
-                          bpm, f2s(ie_ratio), expected_inhale_time, inhale_duration);
-  dprintln(msg);
-
-  if (exhale_duration != expected_exhale_time) { dprintln("Oops: ============>"); }
-  snprintf(msg, MSG_LEN, "For (bpm=%d, ie=%s), expected exhale_duration to be %d and got %d",
-                          bpm, f2s(ie_ratio), expected_exhale_time, exhale_duration);
-  dprintln(msg);
-}
-
-char *f2s(float val) {
-  static char fstr[6];  // Note - this will fail if you have two calls to f2s simultaneously.
-  dtostrf(val, 5, 3, fstr);
-  return fstr;
 }
