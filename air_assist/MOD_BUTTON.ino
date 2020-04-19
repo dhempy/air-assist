@@ -14,7 +14,6 @@ Debouncer btn_select(PIN_BTN_SELECT, DEBOUNCE_DELAY);
 
 void init_mod_input() {
   dprintln(" MOD_INPUT: LOADED");
-  delay(500);
   //Declares input pins
   pinMode(PIN_BTN_UP, INPUT_PULLUP);
   pinMode(PIN_BTN_DOWN, INPUT_PULLUP);

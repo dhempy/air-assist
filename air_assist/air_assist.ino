@@ -1,5 +1,4 @@
 
-
 // Air Assist Ventilator Controller
 //
 // This program controls the Air Assist Ventilator.
@@ -22,19 +21,16 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 #include <EEPROM.h>
+#include <MemoryFree.h>  // Remove later
+#include "pinout.h"
 
-
-#define VERSION 0.0.5
+#define VERSION "0.0.6"
 
 //Uncomment to enable debug mode
 #define DEBUG
 
-
-/*
- * This script works just like Serial.print or Serial.println but it will only be called
- * when the #define DEBUG is uncommented.
- */
 #ifdef DEBUG
+  /* dprint() works just like Serial.print or Serial.println, when DEBUG is defined. */
   #define dprint(...)    Serial.print(__VA_ARGS__)
   #define dprintln(...)  Serial.println(__VA_ARGS__)
 #else
@@ -102,69 +98,66 @@ char cycle_state;
 
 char device_state;
 char MENU_SELECT;
-bool menu_show = true;
+bool menu_show = false;
 int menu_duration = 10000;
 unsigned long menu_started_at;
 
-#define MSG_LEN 254
+#define MSG_LEN 80
 char msg[MSG_LEN + 1];
 
 void setup() {
+  snprintf(msg, MSG_LEN, "Air Assist v%s", VERSION);
+  lcd_print(msg, 0,1);
+
   #ifdef DEBUG
     Serial.begin(115200);
-    delay(1000);
+    for (byte tries = 0; !Serial && tries <=100; tries++) {
+      delay(10);
+    }
   #endif
 
-  dprintln("Air Assist");
+  dprintln(msg);
   dprintln("DEBUG: ENABLED");
   dprintln("Loading Modules");
 
-  // init_mod_lcd();
+  init_mod_lcd();
   init_mod_input();
   init_mod_relay();
   init_mod_eeprom();
   init_mod_menu();
   init_mod_sensor();
 
-  
+  calc_bpm();
+
+  pinMode(PIN_LED, OUTPUT);
+
   device_state = READY;
   dprintln("end of init!");
 
 }
 
 unsigned long pressure_taken_at = 0;
-//byte pressure_interval = 1000; // ms
+#define pressure_interval   100     // ms - Time between pressure readings
+
+unsigned long now = millis();
 
 void loop() {
-  delay(100);
-  unsigned long now = millis();
+  delay(100); // development only.
+  now = millis();
 
-  dprint(".");
-  // dprintln("snr_check...");
-
-  if (now - pressure_taken_at >= 1000) { snr_check(); pressure_taken_at = now; }
-//  if (now - pressure_taken_at >= pressure_interval) { snr_check(); pressure_taken_at = now; }
-
-//  return; /////////////////////////////////////////////////////////// <=================
-  
-  
-
+  blink();
+  if (now - pressure_taken_at >= pressure_interval) { snr_check(); pressure_taken_at = now; }
   btn_menu_check();
+  if (menu_show) menu_select();
 
-  // dprintln("menu_select...");
-
-
-  menu_select();
-  // dprintln("calc_bpm...");
-  calc_bpm();
-  // dprintln("switch...");
+  // calc_bpm();  // TODO: Only calc BPM after a parameter change.
 
   switch(device_state) {
     case READY:
-      lcd_print("DEVICE READY", 4, 0);
+      // lcd_print("DEVICE READY!", 4, 0);
       break;
     case RUNNING:
-      lcd_print("DEVICE RUNNING", 3, 0);
+      // lcd_print("DEVICE RUNNING", 3, 0);
       if (!menu_show) {
         lcd_show_sensors();
       }
@@ -224,6 +217,34 @@ void cycle_respiration() {
 
 void calc_bpm() { // Calculates the inhale and exhale times based on the BPM(Breaths Per Minute) and the ratio
   float cycle_duration = (60000 / val_bpm);
+
+  dprintln("calc_bpm...");
+
   inhale_duration = int((float)cycle_duration / (val_ie_ratio + 1.0));
   exhale_duration = cycle_duration - inhale_duration;
+}
+
+
+// Visual indicator that program is still running.
+void blink() {
+  static byte blink_on = 0;
+
+  if ((now % 1000) < 300) {
+    if (!blink_on) {
+      blink_on = 1;
+      digitalWrite(PIN_LED, blink_on);
+      // show_mem();
+      // dprint('.');
+    }
+  } else if (blink_on) {
+    blink_on = 0;
+    digitalWrite(PIN_LED, blink_on);
+  }
+}
+
+void show_mem() {
+//    int fm = freeMemory();
+//    dprintln(fm);
+//    lcd_print(String(fm), 0, 2);
+//    lcd_print(String(millis()), 0, 3);
 }
