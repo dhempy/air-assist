@@ -1,7 +1,5 @@
-#define PIN_INHALE 8  //Inhale Valve
-#define PIN_RLY_2 9
-#define PIN_RLY_3 10  //Alarm
-#define PIN_RLY_4 11
+
+#include "pinout.h"
 
 //What signal opens the relay
 #define RLY_OPEN_STATE HIGH
