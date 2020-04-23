@@ -7,7 +7,6 @@
 #define RLY_OPEN_STATE HIGH
 
 void init_mod_relay() {
-  delay(500);
   dprintln(" MOD_RELAY: LOADED");
   //Declares relay pins
   pinMode(PIN_INHALE, OUTPUT);

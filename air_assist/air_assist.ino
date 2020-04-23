@@ -1,5 +1,4 @@
 
-
 // Air Assist Ventilator Controller
 //
 // This program controls the Air Assist Ventilator.
@@ -22,19 +21,16 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 #include <EEPROM.h>
+#include <MemoryFree.h>  // Remove later
+#include "pinout.h"
 
-
-#define VERSION 0.0.5
+#define VERSION "0.0.6"
 
 //Uncomment to enable debug mode
 #define DEBUG
 
-
-/*
- * This script works just like Serial.print or Serial.println but it will only be called
- * when the #define DEBUG is uncommented.
- */
 #ifdef DEBUG
+  /* dprint() works just like Serial.print or Serial.println, when DEBUG is defined. */
   #define dprint(...)    Serial.print(__VA_ARGS__)
   #define dprintln(...)  Serial.println(__VA_ARGS__)
 #else
@@ -102,20 +98,25 @@ char cycle_state;
 
 char device_state;
 char MENU_SELECT;
-bool menu_show = true;
+bool menu_show = false;
 int menu_duration = 10000;
 unsigned long menu_started_at;
 
-#define MSG_LEN 254
+#define MSG_LEN 80
 char msg[MSG_LEN + 1];
 
 void setup() {
+  snprintf(msg, MSG_LEN, "Air Assist v%s", VERSION);
+  lcd_print(msg, 0,1);
+
   #ifdef DEBUG
     Serial.begin(115200);
-    delay(1000);
+    for (byte tries = 0; !Serial && tries <=100; tries++) {
+      delay(10);
+    }
   #endif
 
-  dprintln("Air Assist");
+  dprintln(msg);
   dprintln("DEBUG: ENABLED");
   dprintln("Loading Modules");
 
@@ -126,23 +127,37 @@ void setup() {
   init_mod_menu();
   init_mod_sensor();
 
-  test_calc_bpm();
+  calc_bpm();
+
+  pinMode(PIN_LED, OUTPUT);
 
   device_state = READY;
+  dprintln("end of init!");
+
 }
 
+unsigned long pressure_taken_at = 0;
+#define pressure_interval   100     // ms - Time between pressure readings
+
+unsigned long now = millis();
+
 void loop() {
+  delay(100); // development only.
+  now = millis();
+
+  blink();
+  if (now - pressure_taken_at >= pressure_interval) { snr_check(); pressure_taken_at = now; }
   btn_menu_check();
-  snr_check();
-  menu_select();
-  calc_bpm();
+  if (menu_show) menu_select();
+
+  // calc_bpm();  // TODO: Only calc BPM after a parameter change.
 
   switch(device_state) {
     case READY:
-      lcd_print("DEVICE READY", 4, 0);
+      // lcd_print("DEVICE READY!", 4, 0);
       break;
     case RUNNING:
-      lcd_print("DEVICE RUNNING", 3, 0);
+      // lcd_print("DEVICE RUNNING", 3, 0);
       if (!menu_show) {
         lcd_show_sensors();
       }
@@ -202,40 +217,34 @@ void cycle_respiration() {
 
 void calc_bpm() { // Calculates the inhale and exhale times based on the BPM(Breaths Per Minute) and the ratio
   float cycle_duration = (60000 / val_bpm);
+
+  dprintln("calc_bpm...");
+
   inhale_duration = int((float)cycle_duration / (val_ie_ratio + 1.0));
   exhale_duration = cycle_duration - inhale_duration;
 }
 
-void test_calc_bpm() {
-  test_calc_bpm_example(15, 3.0, 1000, 3000);
-  test_calc_bpm_example(20, 1.0, 1500, 1500);
-  test_calc_bpm_example(12, 2.0, 1666, 3334);
-  test_calc_bpm_example(13, 2.5, 1318, 3297);
 
-  val_bpm = BPM_DEFAULT;
-  val_ie_ratio = IE_RATIO_DEFAULT;
+// Visual indicator that program is still running.
+void blink() {
+  static byte blink_on = 0;
+
+  if ((now % 1000) < 300) {
+    if (!blink_on) {
+      blink_on = 1;
+      digitalWrite(PIN_LED, blink_on);
+      // show_mem();
+      // dprint('.');
+    }
+  } else if (blink_on) {
+    blink_on = 0;
+    digitalWrite(PIN_LED, blink_on);
+  }
 }
 
-void test_calc_bpm_example(byte bpm, float ie_ratio, int expected_inhale_time, int expected_exhale_time) {
-  val_bpm = bpm;
-  val_ie_ratio = ie_ratio;
-
-  calc_bpm();
-
-  if (inhale_duration != expected_inhale_time) { dprintln("Oops: ============>"); }
-
-  snprintf(msg, MSG_LEN, "For (bpm=%d, ie=%s), expected inhale_duration to be %d and got %d",
-                          bpm, f2s(ie_ratio), expected_inhale_time, inhale_duration);
-  dprintln(msg);
-
-  if (exhale_duration != expected_exhale_time) { dprintln("Oops: ============>"); }
-  snprintf(msg, MSG_LEN, "For (bpm=%d, ie=%s), expected exhale_duration to be %d and got %d",
-                          bpm, f2s(ie_ratio), expected_exhale_time, exhale_duration);
-  dprintln(msg);
-}
-
-char *f2s(float val) {
-  static char fstr[6];  // Note - this will fail if you have two calls to f2s simultaneously.
-  dtostrf(val, 5, 3, fstr);
-  return fstr;
+void show_mem() {
+//    int fm = freeMemory();
+//    dprintln(fm);
+//    lcd_print(String(fm), 0, 2);
+//    lcd_print(String(millis()), 0, 3);
 }
