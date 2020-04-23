@@ -1,9 +1,5 @@
 #include <Debouncer.h>
-
-#define PIN_BTN_UP      2
-#define PIN_BTN_DOWN    3
-#define PIN_BTN_MENU    4
-#define PIN_BTN_SELECT  5
+#include "pinout.h"
 
 #define DEBOUNCE_DELAY 50
 
