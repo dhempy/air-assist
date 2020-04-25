@@ -20,6 +20,8 @@ void lcd_print(String str, byte col, byte row) {
 }
 
 void lcd_show_sensors() {
+  return;  // Not yet
+
   if (device_state == RUNNING) {
     lcd_print("PSI:" + String(snr_mpr_psi), 11, 3);
   }
