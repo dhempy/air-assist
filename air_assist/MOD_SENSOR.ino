@@ -1,4 +1,5 @@
-#include <Wire.h>
+#include <jm_Wire.h>
+// #include <Wire.h>
 #include "Adafruit_MPRLS.h"
 
 #define SNR_MPR_RST_PIN -1
