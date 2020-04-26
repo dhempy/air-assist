@@ -24,7 +24,7 @@
 #include <MemoryFree.h>  // Remove later
 #include "pinout.h"
 
-#define VERSION "0.0.6"
+#define VERSION "0.1.0"
 
 //Uncomment to enable debug mode
 #define DEBUG
