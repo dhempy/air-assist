@@ -94,6 +94,8 @@ unsigned long exhale_started_at;
 int exhale_duration;
 int inhale_duration;
 
+bool inhale_triggered = false;
+
 char cycle_state;
 
 char device_state;
@@ -102,7 +104,7 @@ bool menu_show = false;
 int menu_duration = 10000;
 unsigned long menu_started_at;
 
-#define MSG_LEN 80
+#define MSG_LEN 255
 char msg[MSG_LEN + 1];
 
 void setup() {
@@ -137,26 +139,38 @@ void setup() {
 }
 
 unsigned long pressure_taken_at = 0;
-#define pressure_interval   100     // ms - Time between pressure readings
+#define pressure_interval   500     // ms - Time between pressure readings
 
 unsigned long now = millis();
 
 void loop() {
-  delay(100); // development only.
+  // delay(100); // development only.
   now = millis();
+  profile_reset();
 
   blink();
-  if (now - pressure_taken_at >= pressure_interval) { snr_check(); pressure_taken_at = now; }
+  profile(1, "blink");
+
+  if (now - pressure_taken_at >= pressure_interval) {
+    snr_check();
+    pressure_taken_at = now;
+    profile(1, "snr_check");
+  }
+
   btn_menu_check();
+  profile(1, "btn_menu_check");
+
   if (menu_show) menu_select();
+  profile(1, "menu_select");
 
   // calc_bpm();  // TODO: Only calc BPM after a parameter change.
 
   switch(device_state) {
     case READY:
-      // lcd_print("DEVICE READY!", 4, 0);
+      lcd_print("RDY", 17, 0);
       break;
     case RUNNING:
+      lcd_print("RUN", 17, 0);
       // lcd_print("DEVICE RUNNING", 3, 0);
       if (!menu_show) {
         lcd_show_sensors();
@@ -164,21 +178,25 @@ void loop() {
       cycle_respiration();
       break;
     case STOP:
-      lcd_print("DEVICE STOPPED", 3, 0);
+      lcd_print("STP", 17, 0);
+      // lcd_print("DEVICE STOPPED", 3, 0);
       rly_close(INHALE);
       rly_close(EXHALE);
       break;
     case ERROR:
-      lcd_print("DEVICE ERROR", 4, 0);
+      lcd_print("ERR", 17, 0);
+      // lcd_print("DEVICE ERROR", 4, 0);
       break;
   }
+  profile(1, "loop end");
+  // dprintln();
 }
 
 void cycle_respiration() {
   switch(cycle_state) {
     case INHALE:
       if (!menu_show) {
-        lcd_print(LABEL_STR[INHALE], 7, 1);
+        lcd_print("IN", 18, 3);
       }
       if (inhale_started_at == 0) {
         inhale_started_at = millis();
@@ -187,6 +205,7 @@ void cycle_respiration() {
       }
       if (millis() - inhale_started_at > inhale_duration) {
         cycle_state = EXHALE;
+        inhale_triggered = false;
         exhale_started_at = millis();
         rlyOPEN(EXHALE);
         rly_close(INHALE);
@@ -195,14 +214,16 @@ void cycle_respiration() {
 
     case EXHALE:
       if (!menu_show) {
-        lcd_print(LABEL_STR[EXHALE], 7, 1);
+        lcd_print("EX", 18, 3);
       }
       if (exhale_started_at == 0) {
         exhale_started_at = millis();
         rlyOPEN(EXHALE);
         rly_close(INHALE);
       }
-      if (millis() - exhale_started_at > exhale_duration) {
+      if ( inhale_triggered ||
+           (millis() - exhale_started_at > exhale_duration)
+         ) {
         cycle_state = INHALE;
         inhale_started_at = millis();
         rlyOPEN(INHALE);
@@ -213,6 +234,18 @@ void cycle_respiration() {
     default:
       cycle_state = INHALE;
   }
+}
+
+#define MIN_EXHALE_BEFORE_TRIGGER 500
+
+void trigger_inhale_cycle() {
+  if (now - exhale_started_at < MIN_EXHALE_BEFORE_TRIGGER) {
+    dprintln("Too soon for inhale.");
+    return;
+  }
+
+  dprintln("PATIENT INITIATED AN INHALE CYCLE");
+  inhale_triggered = true;
 }
 
 void calc_bpm() { // Calculates the inhale and exhale times based on the BPM(Breaths Per Minute) and the ratio
@@ -247,4 +280,26 @@ void show_mem() {
 //    dprintln(fm);
 //    lcd_print(String(fm), 0, 2);
 //    lcd_print(String(millis()), 0, 3);
+}
+
+
+#define PROFILE_THRESHHOLD  100
+long unsigned int last_profile = 0;
+void profile_reset() {
+  last_profile = now;
+}
+
+void profile(int level, char *label) {
+  if (millis() - last_profile <= PROFILE_THRESHHOLD) return;  // Don't sweat the small stuff.
+
+  snprintf(msg, MSG_LEN, "%4lu(loop)/%lu(step) %d %s",
+    millis() - now,
+    millis() - last_profile,
+    level,
+    label
+  );
+
+  dprintln(msg);
+
+  last_profile = millis();
 }
