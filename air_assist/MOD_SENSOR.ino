@@ -18,6 +18,8 @@ int rolling_pressure01;
 
 Adafruit_MPRLS MPR = Adafruit_MPRLS(SNR_MPR_RST_PIN, SNR_MPR_EOC_PIN);
 
+byte show_stats;
+
 void init_mod_sensor() {
   dprint(" MOD_SENSOR: ");
   if(!MPR.begin()){
@@ -36,6 +38,7 @@ void init_mod_sensor() {
   rolling_pressure05 = pressure_hPa;
   rolling_pressure01 = pressure_hPa;
 
+  show_stats = 2;
 }
 
 #define NOISE_THRESHHOLD 100
@@ -104,33 +107,36 @@ void snr_check() {
 //                     avg:969 diff:0 rolling_pressure:1130 diff:161
 // 63511055 Pressure (pa): 969 [avg: 0 diff: 1130] [roll: 161 diff 1835] ...
 
-  snprintf(msg, MSG_LEN, "%d/%d -- avg_diff: %d 50_diff: %d 05_diff: %d 01_diff: %d ...",
-                           actual_time_interval,
-                           pressure_interval,
-                           diff_avg,
-                           diff_rolling50,
-                           diff_rolling05,
-                           diff_rolling01
-                          );
-  dprintln(msg);
-  profile(2, "sensor.debug");
+  if (diff_prev || diff_avg || diff_rolling50) {
+    show_stats = 2; // once for this update, then again when there is no diff.
+  } 
 
-  snprintf(msg, MSG_LEN, "%4d hPa %+03d", pressure_hPa, (pressure_hPa - prev_pressure));
-  lcd_print(msg, 0, 0); // takes about 22ms
-  profile(2, "sensor.lcd_print");
+  if (show_stats) {
+    snprintf(msg, MSG_LEN, "%d/%d -- avg_diff: %d 50_diff: %d 05_diff: %d 01_diff: %d ...",
+                             actual_time_interval,
+                             pressure_interval,
+                             diff_avg,
+                             diff_rolling50,
+                             diff_rolling05,
+                             diff_rolling01
+                            );
+    dprintln(msg);
+    profile(2, "sensor.debug");
 
-  // TODO next: trigger breaths based on pressure.
-  // TODO next: trigger breaths based on pressure.
-  // TODO next: trigger breaths based on pressure.
-  // TODO next: trigger breaths based on pressure.
+    snprintf(msg, MSG_LEN, "%4d hPa %+-04d", pressure_hPa, (pressure_hPa - prev_pressure));
+    lcd_print(msg, 0, 0); // takes about 22ms
+    profile(2, "sensor.lcd_print");
+  }
 
   int triggers = is_patient_inhaling(diff_prev) +
                  is_patient_inhaling(diff_avg) +
                  is_patient_inhaling(diff_rolling50);
 
   // look for at least 2 out of the 3 potential triggers to start an inhale:
-  dprint("triggers: "); dprintln(triggers);
-  if (triggers > 1) { trigger_inhale_cycle(); }
+  if (triggers) { 
+    dprint("triggers: "); dprintln(triggers); 
+    if (triggers >= 2) trigger_inhale_cycle(); 
+  }
 
   dump_press(0, "raw", pressure_hPa, diff_prev);
   profile(2, "sensor.dump 1");
@@ -145,6 +151,8 @@ void snr_check() {
   profile(2, "sensor.dump 4");
 
   profile(2, "sensor end");
+
+  if (show_stats) show_stats--; 
 }
 
 #define INHALE_TRIGGER  -2
@@ -181,10 +189,6 @@ int avg_pressure() {
   for(int n = 0; n < HISTORY_SIZE; n++) {
     sum += pressure_history[n];
   }
-  // dprint(" sum:"); dprint(sum);
-  // dprint(" len:"); dprint(HISTORY_SIZE);
-  // dprint(" avg:"); dprint(sum / HISTORY_SIZE);
-  // dprintln();
 
   return sum / HISTORY_SIZE;
 }

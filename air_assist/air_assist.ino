@@ -134,12 +134,13 @@ void setup() {
   pinMode(PIN_LED, OUTPUT);
 
   device_state = READY;
+  lcd_print("RDY", 17, 0);
   dprintln("end of init!");
 
 }
 
 unsigned long pressure_taken_at = 0;
-#define pressure_interval   500     // ms - Time between pressure readings
+#define pressure_interval   50     // ms - Time between pressure readings
 
 unsigned long now = millis();
 
@@ -167,10 +168,8 @@ void loop() {
 
   switch(device_state) {
     case READY:
-      lcd_print("RDY", 17, 0);
       break;
     case RUNNING:
-      lcd_print("RUN", 17, 0);
       // lcd_print("DEVICE RUNNING", 3, 0);
       if (!menu_show) {
         lcd_show_sensors();
@@ -178,13 +177,11 @@ void loop() {
       cycle_respiration();
       break;
     case STOP:
-      lcd_print("STP", 17, 0);
       // lcd_print("DEVICE STOPPED", 3, 0);
       rly_close(INHALE);
       rly_close(EXHALE);
       break;
     case ERROR:
-      lcd_print("ERR", 17, 0);
       // lcd_print("DEVICE ERROR", 4, 0);
       break;
   }
@@ -195,9 +192,9 @@ void loop() {
 void cycle_respiration() {
   switch(cycle_state) {
     case INHALE:
-      if (!menu_show) {
-        lcd_print("IN", 18, 3);
-      }
+      // if (!menu_show) {
+      //   lcd_print("IN", 18, 3);
+      // }
       if (inhale_started_at == 0) {
         inhale_started_at = millis();
         rlyOPEN(INHALE);
@@ -205,6 +202,7 @@ void cycle_respiration() {
       }
       if (millis() - inhale_started_at > inhale_duration) {
         cycle_state = EXHALE;
+        lcd_print("EX", 18, 3); // TODO: move this to start_exhale() so it only happens once.
         inhale_triggered = false;
         exhale_started_at = millis();
         rlyOPEN(EXHALE);
@@ -213,9 +211,9 @@ void cycle_respiration() {
       break;
 
     case EXHALE:
-      if (!menu_show) {
-        lcd_print("EX", 18, 3);
-      }
+      // if (!menu_show) {
+      //   lcd_print("EX", 18, 3); 
+      // }
       if (exhale_started_at == 0) {
         exhale_started_at = millis();
         rlyOPEN(EXHALE);
@@ -225,6 +223,7 @@ void cycle_respiration() {
            (millis() - exhale_started_at > exhale_duration)
          ) {
         cycle_state = INHALE;
+        lcd_print("IN", 18, 3);
         inhale_started_at = millis();
         rlyOPEN(INHALE);
         rly_close(EXHALE);

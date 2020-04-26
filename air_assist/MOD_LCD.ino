@@ -24,6 +24,7 @@ void lcd_clear() {
 }
 
 void lcd_print(String str, byte col, byte row) {
+  dprint("  lcd_print: "); dprintln(str);
   lcd.setCursor(col, row);
   lcd.print(str);
 }
