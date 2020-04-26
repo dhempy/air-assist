@@ -3,12 +3,18 @@ void init_mod_menu() {
   MENU_SELECT = START;
 }
 
+char last_menu_shown[20];
+
 void menu_select() {
   if (!menu_show) return;
 
-  lcd_print("        MENU        ", 0, 1);
-  lcd_print("                    ", 0, 2);
-  lcd_print(LABEL_STR[MENU_SELECT], 0, 3);
+
+  if (strcmp(LABEL_STR[MENU_SELECT], last_menu_shown)) {
+    lcd_print("        MENU        ", 0, 1);
+    lcd_print("                    ", 0, 2);
+    lcd_print(LABEL_STR[MENU_SELECT], 0, 3);
+    strncpy(last_menu_shown, LABEL_STR[MENU_SELECT], 20);
+  }
 
   if (btn_select_check()) {
     switch(MENU_SELECT) {
@@ -17,11 +23,13 @@ void menu_select() {
         device_state = RUNNING;
         cycle_state = INHALE;
         menu_show = false;
+        lcd_print("RUN", 17, 0);
         break;
       case STOP:
         lcd_clear();
         device_state = STOP;
-        break;
+        lcd_print("STP", 17, 0);
+      break;
       case SETTINGS:
         lcd_clear();
         break;
