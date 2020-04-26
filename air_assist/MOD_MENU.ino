@@ -1,74 +1,79 @@
-
-
-void initMOD_MENU(){
-  DPRINTLN(" MOD_MENU: LOADED");
+void init_mod_menu() {
+  dprintln(" MOD_MENU: LOADED");
   MENU_SELECT = START;
 }
 
+char last_menu_shown[20];
 
-/*
- * 
- */
-void menuSELECT(){
+void menu_select() {
+  if (!menu_show) return;
 
-  if(MENU_SHOW){
-    lcdPRINT("        MENU        ", 0, 1);
-    lcdPRINT("                    ", 0, 2);
-    lcdPRINT(LABEL_STR[MENU_SELECT], 0, 3);
-    if(btnSELECT_CHECK()){
-      switch(MENU_SELECT){
-        case START:
-          lcdCLEAR();
-          DEVICE_STATE = RUNNING;
-          CYCLE_STATE = INHALE;
-          MENU_SHOW = false;
-          break;
-        case STOP:
-          lcdCLEAR();
-          DEVICE_STATE = STOP;
-          break;
-        case SETTINGS:
-          lcdCLEAR();
-          break;
-      }
+
+  if (strcmp(LABEL_STR[MENU_SELECT], last_menu_shown)) {
+    lcd_print("        MENU        ", 0, 1);
+    lcd_print("                    ", 0, 2);
+    lcd_print(LABEL_STR[MENU_SELECT], 0, 3);
+    strncpy(last_menu_shown, LABEL_STR[MENU_SELECT], 20);
+  }
+
+  if (btn_select_check()) {
+    switch(MENU_SELECT) {
+      case START:
+        lcd_clear();
+        device_state = RUNNING;
+        cycle_state = INHALE;
+        menu_show = false;
+        lcd_print("RUN", 17, 0);
+        break;
+      case STOP:
+        lcd_clear();
+        device_state = STOP;
+        lcd_print("STP", 17, 0);
+      break;
+      case SETTINGS:
+        lcd_clear();
+        break;
     }
-    if(btnUP_CHECK()){
-      switch(MENU_SELECT){
-        case START:
-          lcdCLEAR();
-          MENU_SELECT = SETTINGS;
-          break;
-        case STOP:
-          lcdCLEAR();
-          MENU_SELECT = START;
-          break;
-        case SETTINGS:
-          lcdCLEAR();
-          MENU_SELECT = STOP;
-          break;
-      }
+  }
+
+  if (btn_up_check()) {
+    switch(MENU_SELECT) {
+      case START:
+        lcd_clear();
+        MENU_SELECT = SETTINGS;
+        break;
+      case STOP:
+        lcd_clear();
+        MENU_SELECT = START;
+        break;
+      case SETTINGS:
+        lcd_clear();
+        MENU_SELECT = STOP;
+        break;
     }
-    if(btnDOWN_CHECK()){
-      switch(MENU_SELECT){
-        case START:
-          lcdCLEAR();
-          MENU_SELECT = STOP;
-          break;
-        case STOP:
-          lcdCLEAR();
-          MENU_SELECT = SELECT;
-          break;
-        case SETTINGS:
-          lcdCLEAR();
-          MENU_SELECT = START;
-          break;
-      }
+  }
+
+  if (btn_down_check()) {
+    switch(MENU_SELECT) {
+      case START:
+        lcd_clear();
+        MENU_SELECT = STOP;
+        break;
+      case STOP:
+        lcd_clear();
+        MENU_SELECT = SELECT;
+        break;
+      case SETTINGS:
+        lcd_clear();
+        MENU_SELECT = START;
+        break;
     }
-    if(DEVICE_STATE == RUNNING){
-      if(millis() - MENU_CURRENT > MENU_TIME){
-        MENU_SHOW = false;
-        lcdCLEAR();
-      }
+  }
+
+  if (device_state == RUNNING) {
+    if (millis() - menu_started_at > menu_duration) {
+      menu_show = false;
+      lcd_clear();
     }
   }
 }

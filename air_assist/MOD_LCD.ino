@@ -1,28 +1,38 @@
-#include "Wire.h"
+// #include <jm_Scheduler.h>
+#include <jm_Wire.h>
+// #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-LiquidCrystal_I2C lcd(0x27,20,4);
+//LiquidCrystal_I2C lcd(0x27,20,4);
+LiquidCrystal_I2C lcd(0x3F,20,4);
+// jm_LiquidCrystal_I2C lcd;
 
-void initMOD_LCD(){
-  DPRINTLN(" MOD_LCD: LOADED");
+void init_mod_lcd() {
+  dprintln(" MOD_LCD: LOADED");
+
+
+  // // jm_wire init:
+  // lcd.begin();
+  // while (lcd._i2cio.yield_request()) jm_Scheduler::yield();
+
   lcd.init();
   lcd.backlight();
-  
-  
 }
-void lcdCLEAR(){
+
+void lcd_clear() {
   lcd.clear();
 }
 
-void lcdPRINT(String tmpStr, byte tmpCol, byte tmpRow){
-  lcd.setCursor(tmpCol, tmpRow);
-  lcd.print(tmpStr);
+void lcd_print(String str, byte col, byte row) {
+  dprint("  lcd_print: "); dprintln(str);
+  lcd.setCursor(col, row);
+  lcd.print(str);
 }
 
-void lcdSNR(){
-  if(DEVICE_STATE == RUNNING){
-    lcdPRINT("O:" + String(VAL_OXYGEN), 15, 1);
-    lcdPRINT("I:" + String(VAL_INHALE), 15, 2);
-    lcdPRINT("H:" + String(VAL_EXHALE), 15, 3);
+void lcd_show_sensors() {
+  return;  // Not yet
+
+  if (device_state == RUNNING) {
+    lcd_print("PSI:" + String(snr_mpr_psi), 11, 3);
   }
 }

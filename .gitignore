@@ -53,6 +53,7 @@ dkms.conf
 
 .DS_store
 tmp/
+temp/
 
 # arduino_ci
 /.bundle/
@@ -72,3 +73,4 @@ vendor
 # C++ stuff
 *.bin
 *.bin.dSYM
+

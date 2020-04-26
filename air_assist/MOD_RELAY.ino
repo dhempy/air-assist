@@ -1,74 +1,65 @@
-#define PIN_RLY_1 8  //Inhale Valve
-#define PIN_RLY_2 9  //Exhale Valve
-#define PIN_RLY_3 10  //Alarm
-#define PIN_RLY_4 11
 
+#include "pinout.h"
 
 //What signal opens the relay
 #define RLY_OPEN_STATE HIGH
 
-
-
-
-
-void initMOD_RELAY(){
-  delay(500);
-  DPRINTLN(" MOD_RELAY: LOADED");
+void init_mod_relay() {
+  dprintln(" MOD_RELAY: LOADED");
   //Declares relay pins
-  pinMode(PIN_RLY_1, OUTPUT);
+  pinMode(PIN_INHALE, OUTPUT);
   pinMode(PIN_RLY_2, OUTPUT);
   pinMode(PIN_RLY_3, OUTPUT);
   pinMode(PIN_RLY_4, OUTPUT);
   //closes all relays for startup.
-  digitalWrite(PIN_RLY_1, !RLY_OPEN_STATE);
+  digitalWrite(PIN_INHALE, !RLY_OPEN_STATE);
   digitalWrite(PIN_RLY_2, !RLY_OPEN_STATE);
   digitalWrite(PIN_RLY_3, !RLY_OPEN_STATE);
   digitalWrite(PIN_RLY_4, !RLY_OPEN_STATE);
 }
 
+void rlyOPEN(char relay) {
+  dprintln("Relay " + String(relay) + ": Open");
 
-
-
-void rlyOPEN(char tmpRLY){
-  DPRINTLN("Relay " + String(tmpRLY) + ": Open");
-  switch(tmpRLY){
-    case INHALE: // Inhale Valve
-      digitalWrite(PIN_RLY_1, RLY_OPEN_STATE);
-      RLY_INHALE_STATE = RLY_OPEN_STATE;
+  switch(relay) {
+    case INHALE:
+      digitalWrite(PIN_INHALE, RLY_OPEN_STATE);
+      rly_inhale_state = RLY_OPEN_STATE;
       break;
-    case EXHALE: // Exhale Valve
+    case EXHALE:
       digitalWrite(PIN_RLY_2, RLY_OPEN_STATE);
-      RLY_EXHALE_STATE = RLY_OPEN_STATE;
+      rly_exhale_state = RLY_OPEN_STATE;
       break;
-    case ERROR: // Error
+    case ERROR:
       digitalWrite(PIN_RLY_3, RLY_OPEN_STATE);
-      RLY_ALARM_STATE = RLY_OPEN_STATE;
+      rly_alarm_state = RLY_OPEN_STATE;
       break;
-    case 4: // Unused at this time.
+    case 4:
       digitalWrite(PIN_RLY_4, RLY_OPEN_STATE);
-      RLY_4_STATE = RLY_OPEN_STATE;
+      rly_4_state = RLY_OPEN_STATE;
       break;
   }
 }
 
-void rlyCLOSE(byte tmpRLY){
-  DPRINTLN("Relay " + String(tmpRLY) + ": Close");
-  switch(tmpRLY){
+void rly_close(byte relay) {
+  dprintln("Relay " + String(relay) + ": Close");
+
+  switch(relay) {
     case INHALE: // Inhale Valve
-      digitalWrite(PIN_RLY_1, !RLY_OPEN_STATE);
-      RLY_INHALE_STATE = !RLY_OPEN_STATE;
+      digitalWrite(PIN_INHALE, !RLY_OPEN_STATE);
+      rly_inhale_state = !RLY_OPEN_STATE;
       break;
     case EXHALE: // Exhale Valve
       digitalWrite(PIN_RLY_2, !RLY_OPEN_STATE);
-      RLY_EXHALE_STATE = !RLY_OPEN_STATE;
+      rly_exhale_state = !RLY_OPEN_STATE;
       break;
     case ERROR: // Error
       digitalWrite(PIN_RLY_3, !RLY_OPEN_STATE);
-      RLY_ALARM_STATE = !RLY_OPEN_STATE;
+      rly_alarm_state = !RLY_OPEN_STATE;
       break;
     case 4: // Unused at this time
       digitalWrite(PIN_RLY_4, !RLY_OPEN_STATE);
-      RLY_4_STATE = !RLY_OPEN_STATE;
+      rly_4_state = !RLY_OPEN_STATE;
       break;
   }
 }

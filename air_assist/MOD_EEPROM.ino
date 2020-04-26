@@ -1,4 +1,4 @@
 
-void initMOD_EEPROM(){
+void init_mod_eeprom() {
   //TODO
 }
